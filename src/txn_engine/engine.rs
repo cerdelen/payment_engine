@@ -69,12 +69,208 @@ impl TransactionEngine {
         }
     }
 
-    fn handle_dispute(&mut self, tx: Transaction) {
+    fn handle_dispute(&mut self, tx: Transaction) {}
+
+    fn handle_resolve(&mut self, tx: Transaction) {}
+
+    fn handle_chargeback(&mut self, tx: Transaction) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::txn_engine::amt::Amt;
+
+    use super::*;
+
+    // TODO
+    // test deposit to frozen acc
+
+    #[test]
+    fn test_valid_deposits() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(1));
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 2,
+            amt: Some(Amt::from(2)),
+        });
+        assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(3));
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 3,
+            amt: Some(Amt::from(3)),
+        });
+        assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(6));
+        assert_eq!(engine.accounts.len(), 1);
     }
 
-    fn handle_resolve(&mut self, tx: Transaction) {
+    #[test]
+    fn test_correct_transactions_len_after_valid_deposits() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 2,
+            amt: Some(Amt::from(2)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 3,
+            amt: Some(Amt::from(3)),
+        });
+
+        assert_eq!(engine.transactions.len(), 3);
     }
 
-    fn handle_chargeback(&mut self, tx: Transaction) {
+    #[test]
+    fn test_correct_transactions_len_after_valid_withdrawals() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 2,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 3,
+            amt: Some(Amt::from(1000)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 4,
+            amt: Some(Amt::from(500)),
+        });
+
+        assert_eq!(engine.transactions.len(), 4);
+    }
+
+    #[test]
+    fn test_correct_transactions_len_after_invalid_withdrawals() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 4,
+            amt: Some(Amt::from(500)),
+        });
+
+        assert_eq!(engine.transactions.len(), 1);
+    }
+
+    #[test]
+    fn test_valid_withdrawal() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 2,
+            amt: Some(Amt::from(1)),
+        });
+        assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(0));
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 3,
+            amt: Some(Amt::from(1000)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 4,
+            amt: Some(Amt::from(500)),
+        });
+        assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(500));
+    }
+
+    #[test]
+    fn test_withdrawal_without_amt() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: None,
+        });
+
+        assert!(engine.accounts.is_empty());
+        assert!(engine.transactions.is_empty());
+    }
+
+    #[test]
+    fn test_deposit_without_amt() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 1,
+            amt: None,
+        });
+
+        assert!(engine.accounts.is_empty());
+        assert!(engine.transactions.is_empty());
+    }
+
+    #[test]
+    fn test_duplicated_tx_id_ignored() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(2)),
+        });
+
+        assert_eq!(engine.transactions.len(), 1);
     }
 }

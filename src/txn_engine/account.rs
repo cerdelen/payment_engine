@@ -77,3 +77,50 @@ impl ClientAccount {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod account_tests {
+    use crate::txn_engine::amt::Amt;
+
+    use super::*;
+
+    // TODO
+    // test deposit to frozen acc
+
+    #[test]
+    fn test_valid_deposits() {
+        let mut acc = ClientAccount::new(1);
+
+        acc.deposit(Amt::from(1)).unwrap();
+        assert_eq!(acc.available, Amt::from(1));
+
+        acc.deposit(Amt::from(2)).unwrap();
+        assert_eq!(acc.available, Amt::from(3));
+
+        acc.deposit(Amt::from(3)).unwrap();
+        assert_eq!(acc.available, Amt::from(6));
+    }
+
+    #[test]
+    fn test_valid_withdrawal() {
+        let mut acc = ClientAccount::new(1);
+
+        acc.deposit(Amt::from(1)).unwrap();
+        acc.withdraw(Amt::from(1)).unwrap();
+        assert_eq!(acc.available, Amt::from(0));
+
+        acc.deposit(Amt::from(1000)).unwrap();
+        acc.withdraw(Amt::from(500)).unwrap();
+        assert_eq!(acc.available, Amt::from(500));
+    }
+
+    #[test]
+    fn test_invalid_withdrawal() {
+        let mut acc = ClientAccount::new(1);
+
+        assert!(acc.withdraw(Amt::from(1)).is_err());
+
+        acc.deposit(Amt::from(1)).unwrap();
+        assert!(acc.withdraw(Amt::from(2)).is_err());
+    }
+}
