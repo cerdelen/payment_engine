@@ -36,7 +36,7 @@ impl ClientAccount {
 
     pub fn deposit(&mut self, amt: Amt) -> Result<(), &'static str> {
         if self.locked {
-            return Err("Account is frozen");
+            return Err("account is frozen");
         }
 
         // Check for possible overflow
@@ -46,7 +46,7 @@ impl ClientAccount {
             self.total = new_total;
             self.available = new_available;
         } else {
-            return Err("Deposit exceeds maximum balance");
+            return Err("deposit exceeds maximum balance");
         }
 
         Ok(())
@@ -54,11 +54,11 @@ impl ClientAccount {
 
     pub fn withdraw(&mut self, amt: Amt) -> Result<(), &'static str> {
         if self.locked {
-            return Err("Account is frozen");
+            return Err("account is frozen");
         }
 
         if self.available < amt {
-            return Err("Not enough available Funds to withdraw");
+            return Err("not enough available funds to withdraw");
         }
 
         // we dont need to check for overflow since available is bigger than amt
@@ -67,13 +67,66 @@ impl ClientAccount {
         Ok(())
     }
 
-    pub fn dispute(&mut self) -> Result<(), &'static str> {
+    pub fn dispute(&mut self, amt: Amt) -> Result<(), &'static str> {
+        if self.locked {
+            return Err("account is frozen");
+        }
+
+        if self.available < amt {
+            return Err("not enough available funds to cover the disputed amt");
+        }
+
+        // Check for possible overflow
+        if let Some(new_held) = self.held.checked_add(amt) {
+            self.available -= amt;
+            self.held = new_held;
+        } else {
+            return Err("dispute overflows held amt");
+        }
+
         Ok(())
     }
-    pub fn resolve(&mut self) -> Result<(), &'static str> {
+    pub fn resolve(&mut self, amt: Amt) -> Result<(), &'static str> {
+        if self.locked {
+            return Err("account is frozen");
+        }
+
+        if self.held < amt {
+            // this error should not be possible
+            return Err("not enough funds held to resolve");
+        }
+
+        // Check for possible overflow
+        if let Some(new_available) = self.available.checked_add(amt) {
+            self.available = new_available;
+            self.held -= amt;
+        } else {
+            return Err("resolve overflows available amt");
+        }
+
         Ok(())
     }
-    pub fn chargeback(&mut self) -> Result<(), &'static str> {
+    pub fn chargeback(&mut self, amt: Amt) -> Result<(), &'static str> {
+        if self.locked {
+            return Err("account is frozen");
+        }
+
+        if self.held < amt {
+            // this error should not be possible
+            return Err("not enough funds held to chargeback");
+        }
+
+        if self.total < amt {
+            // this error should not be possible
+            return Err("not enough total funds to chargeback");
+        }
+
+        self.held -= amt;
+        self.total -= amt;
+
+        // freeze the account
+        self.locked = true;
+
         Ok(())
     }
 }

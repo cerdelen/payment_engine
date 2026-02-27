@@ -2,14 +2,16 @@ use std::collections::HashMap;
 
 use crate::txn_engine::{
     account::{ClientAccount, ClientId},
-    transaction::{ProcessedTransaction, TransactionInput, TransactionType, TxId},
+    transaction::{ProcessedTransaction, TransactionInput, TransactionStatus, TransactionType, TxId},
 };
 
 pub type AccountBalances = HashMap<ClientId, ClientAccount>;
 
 #[derive(Debug, Default)]
 pub struct TransactionEngine {
+    /// Holds all ClientAccounts encountered
     accounts: AccountBalances,
+    /// Holds all previously processed Deposits and Withdrawals
     transactions: HashMap<TxId, ProcessedTransaction>,
 }
 
@@ -92,23 +94,106 @@ impl TransactionEngine {
             eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
             return;
         }
-        todo!()
+        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
+            // client id mismatch
+            if tx.client_id != processed_tx.client_id {
+                eprintln!("Error: Transaction {:?}: dispute referred client_id does not matched the client id of referred transaction", tx);
+                return ;
+            }
+            // check referenced id was a deposit
+            if !processed_tx.is_deposit {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
+                return ;
+            }
+            // check referenced id's satus is normal
+            if processed_tx.status != TransactionStatus::Normal {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
+                return ;
+            }
+            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            account.dispute(processed_tx.amt).map(|_| {
+                processed_tx.status = TransactionStatus::Disputed;
+            })
+        } else {
+            Err("transaction id reference in dispute does not exist")
+        };
+
+        if let Err(e) = res {
+            eprintln!("Error: Transaction {:?}: {e}", tx);
+        }
     }
 
     fn handle_resolve(&mut self, tx: TransactionInput) {
         if tx.amt.is_some() {
-            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
+            eprintln!("Error: Transaction {:?}: resolve has an amount", tx);
             return;
         }
-        todo!()
+
+        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
+            // client id mismatch
+            if tx.client_id != processed_tx.client_id {
+                eprintln!("Error: Transaction {:?}: resolve referred client_id does not matched the client id of referred transaction", tx);
+                return ;
+            }
+            // check referenced id was a deposit
+            if !processed_tx.is_deposit {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
+                return ;
+            }
+            // check referenced id's satus is disputed
+            if processed_tx.status != TransactionStatus::Disputed {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
+                return ;
+            }
+            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            account.resolve(processed_tx.amt).map(|_| {
+                processed_tx.status = TransactionStatus::Normal;
+            })
+        } else {
+            Err("transaction id reference in resolve does not exist")
+        };
+
+        if let Err(e) = res {
+            eprintln!("Error: Transaction {:?}: {e}", tx);
+        }
     }
 
     fn handle_chargeback(&mut self, tx: TransactionInput) {
         if tx.amt.is_some() {
-            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
+            eprintln!("Error: Transaction {:?}: chargeback has an amount", tx);
             return;
         }
-        todo!()
+
+        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
+            // client id mismatch
+            if tx.client_id != processed_tx.client_id {
+                eprintln!("Error: Transaction {:?}: chargeback referred client_id does not matched the client id of referred transaction", tx);
+                return ;
+            }
+            // check referenced id was a deposit
+            if !processed_tx.is_deposit {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
+                return ;
+            }
+            // check referenced id's satus is disputed
+            if processed_tx.status != TransactionStatus::Disputed {
+                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
+                return ;
+            }
+            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            account.chargeback(processed_tx.amt).map(|_| {
+                processed_tx.status = TransactionStatus::ChargedBack;
+            })
+        } else {
+            Err("transaction id reference in chargeback does not exist")
+        };
+
+        if let Err(e) = res {
+            eprintln!("Error: Transaction {:?}: {e}", tx);
+        }
     }
 }
 
@@ -117,6 +202,21 @@ mod tests {
     use crate::txn_engine::{amt::Amt, transaction::TransactionStatus};
 
     use super::*;
+    // TODO
+    // dispute valid deposit (works)
+    // dispute client_id mismatch
+    // dispute disputed transaction (does not work)
+    // dispute chargebacked transaction (does not work)
+    // dispute withrdaw (does not work)
+    // resolve disputed deposit (works)
+    // resolve undisputed deposit (does not work)
+    // resolve withdraw (cannot be dispted -> does not work)
+    // resolve chargebacked transaction (does not work)
+    // resolve client_id mismatch
+    // chargeback client_id mismatch
+    // chargeback withrdaw (does not work)
+    // chargeback undisputed transaction (does not work)
+    // chargeback chargebacked transaction (does not work)
 
     // TODO
     // test deposit to frozen acc

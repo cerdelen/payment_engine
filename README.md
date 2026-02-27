@@ -4,6 +4,8 @@ Assumptions made
     - maximum positive value is (2^127 - 1) / 10 ^ 4
     - maximum negative value is - (2^127) / 10 ^ 4
 This should be more than enough to handle any reasonable transfer amounts
+In case an acounts combined held + available amt would overflow we print the i128 Max value as a fallback.
+As long as transactions dont overflow held or available themselves they are valid even if the combined values would overflow.
 
 
 Amt values are fractional with a precision of up to 4 after the decimal point. Allowed formats are "x", "x.x", "x.xx", "x.xxx", "x.xxxx".
@@ -11,6 +13,12 @@ The whole number string will be accepted up to the aformentioned over/underflow 
 
 Output normalization will always include a decimal point
 
+A dispute can only refer to a deposit
+
+Decision regarding disputed deposit with insufficient account balance to unwind the deposit
+For a payment processing agent it is sensible to not allow such a disputr as otherwise the it would be the one covering the difference
+
+An account can never go into negative Balance
 
 
 AI Usage
