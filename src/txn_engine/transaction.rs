@@ -8,14 +8,14 @@ pub type TxId = u32;
 #[allow(unused)]
 pub struct Transaction {
     #[serde(rename = "type")]
-    tx_type: TransactionType,
+    pub tx_type: TransactionType,
     #[serde(rename = "client")]
-    client_id: u16,
+    pub client_id: u16,
     #[serde(rename = "tx")]
-    tx_id: TxId,
+    pub tx_id: TxId,
     /// We will be scaling the amount values ourselves by the factor of 10 ^ 4
     #[serde(rename = "amount")]
-    amt: Amt,
+    pub amt: Option<Amt>,
 }
 
 #[derive(Debug, Deserialize)]

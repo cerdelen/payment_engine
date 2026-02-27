@@ -15,3 +15,4 @@ Output normalization will always include a decimal point
 
 AI Usage
 - writing serde serializer for decimal points with a precision of up to 4 digits after the decimal point
+- RustAnalyzer Lsp autocompletion + Function documentation template creations
