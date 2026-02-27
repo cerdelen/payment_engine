@@ -1,10 +1,17 @@
 use std::fmt;
+use std::ops::SubAssign;
 
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amt(i128);
+
+impl SubAssign for Amt {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0
+    }
+}
 
 #[allow(unused)]
 impl Amt {

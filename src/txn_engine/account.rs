@@ -44,9 +44,21 @@ impl ClientAccount {
         Ok(())
     }
 
-    pub fn withdraw(&mut self) -> Result<(), &'static str> {
+    pub fn withdraw(&mut self, amt: Amt) -> Result<(), &'static str> {
+        if self.locked {
+            return Err("Account is frozen");
+        }
+
+        if self.available < amt {
+            return Err("Not enough available Funds to withdraw");
+        }
+
+        // we dont need to check for overflow since available is bigger than amt
+        self.available -= amt;
+        self.total -= amt;
         Ok(())
     }
+
     pub fn dispute(&mut self) -> Result<(), &'static str> {
         Ok(())
     }

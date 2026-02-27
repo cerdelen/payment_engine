@@ -43,6 +43,16 @@ impl TransactionEngine {
     }
 
     fn handle_withdrawal(&mut self, tx: Transaction) {
+        let res = if let Some(amt) = tx.amt {
+            let account = self.balances.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            account.withdraw(amt)
+        } else {
+            Err("withdrawal transaction is missing an amount")
+        };
+
+        if let Err(e) = res {
+            eprintln!("Error: Withdrawal for {} failed: {e}", tx.client_id);
+        }
     }
 
     fn handle_dispute(&mut self, tx: Transaction) {
