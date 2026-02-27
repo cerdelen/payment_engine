@@ -10,7 +10,7 @@ use output::print_account_balances;
 
 use crate::{
     io::{input, output},
-    txn_engine::{engine::TransactionEngine, transaction::Transaction},
+    txn_engine::{engine::TransactionEngine, transaction::TransactionInput},
 };
 
 fn main() -> Result<()> {
@@ -25,7 +25,7 @@ fn run_main(args: Vec<String>) -> Result<()> {
 
     let mut engine = TransactionEngine::default();
 
-    for record_res in txn_reader.deserialize::<Transaction>() {
+    for record_res in txn_reader.deserialize::<TransactionInput>() {
         if let Ok(tx) = record_res {
             engine.process_transaction(tx);
         } else {

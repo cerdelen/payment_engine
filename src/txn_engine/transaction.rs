@@ -1,16 +1,17 @@
 use serde::Deserialize;
 
-use crate::txn_engine::amt::Amt;
+use crate::txn_engine::{account::ClientId, amt::Amt};
 
 pub type TxId = u32;
 
+/// This struct represents an transaction event as input to be processed by the payment engine.
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
-pub struct Transaction {
+pub struct TransactionInput {
     #[serde(rename = "type")]
     pub tx_type: TransactionType,
     #[serde(rename = "client")]
-    pub client_id: u16,
+    pub client_id: ClientId,
     #[serde(rename = "tx")]
     pub tx_id: TxId,
     /// We will be scaling the amount values ourselves by the factor of 10 ^ 4
@@ -26,4 +27,31 @@ pub enum TransactionType {
     Dispute,
     Resolve,
     Chargeback,
+}
+
+
+/// This struct represents an already processed valid former transaction.
+#[derive(Debug)]
+#[allow(unused)]
+pub struct ProcessedTransaction {
+    pub is_deposit: bool,
+    pub client_id: u16,
+    pub amt: Amt,
+    pub status: TransactionStatus,
+}
+
+impl ProcessedTransaction {
+    /// Creates a new ProcessedTransaction struct with TransactionStatus 'Normal'.
+    pub fn new(is_deposit: bool, client_id: ClientId, amt: Amt) -> Self {
+        Self { is_deposit, client_id, amt, status: TransactionStatus::Normal }
+    }
+}
+
+/// This struct tells us the current status of any given deposit or withdrawal transaction
+#[derive(Debug, PartialEq, Eq)]
+#[allow(unused)]
+pub enum TransactionStatus {
+    Normal,
+    Disputed,
+    ChargedBack,
 }
