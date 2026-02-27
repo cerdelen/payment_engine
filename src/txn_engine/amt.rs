@@ -30,11 +30,13 @@ impl Amt {
         Amt(from)
     }
 
+    #[must_use]
     /// performs checked_add on underlying i128 values
     pub fn checked_add(self, rhs: Self) -> Option<Self> {
         Some(Amt(self.0.checked_add(rhs.0)?))
     }
 
+    #[must_use]
     /// performs checked_sub on underlying i128 values
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         Some(Amt(self.0.checked_sub(rhs.0)?))

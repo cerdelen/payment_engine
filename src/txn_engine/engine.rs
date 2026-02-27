@@ -2,18 +2,23 @@ use std::collections::HashMap;
 
 use crate::txn_engine::{
     account::{ClientAccount, ClientId},
-    transaction::{Transaction, TransactionType},
+    transaction::{Transaction, TransactionType, TxId},
 };
 
 pub type AccountBalances = HashMap<ClientId, ClientAccount>;
 
 #[derive(Debug, Default)]
 pub struct TransactionEngine {
-    balances: AccountBalances,
+    accounts: AccountBalances,
+    transactions: HashMap<TxId, Transaction>,
 }
 
 impl TransactionEngine {
     pub fn process_transaction(&mut self, tx: Transaction) {
+        if self.transactions.contains_key(&tx.tx_id) {
+            eprintln!("Error: Duplicated transaction id: {}", tx.client_id);
+            return;
+        }
         match tx.tx_type {
             TransactionType::Deposit => self.handle_deposit(tx),
             TransactionType::Withdrawal => self.handle_withdrawal(tx),
@@ -25,13 +30,13 @@ impl TransactionEngine {
 
     /// Returns a reference to the current account balances of this [`TransactionEngine`].
     pub fn get_account_balances(&self) -> &AccountBalances {
-        &self.balances
+        &self.accounts
     }
 
     fn handle_deposit(&mut self, tx: Transaction) {
         let res = if let Some(amt) = tx.amt {
             let account = self
-                .balances
+                .accounts
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
             account.deposit(amt)
@@ -41,13 +46,15 @@ impl TransactionEngine {
 
         if let Err(e) = res {
             eprintln!("Error: Deposit for {} failed: {e}", tx.client_id);
+        } else {
+            self.transactions.insert(tx.tx_id, tx);
         }
     }
 
     fn handle_withdrawal(&mut self, tx: Transaction) {
         let res = if let Some(amt) = tx.amt {
             let account = self
-                .balances
+                .accounts
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
             account.withdraw(amt)
@@ -57,6 +64,8 @@ impl TransactionEngine {
 
         if let Err(e) = res {
             eprintln!("Error: Withdrawal for {} failed: {e}", tx.client_id);
+        } else {
+            self.transactions.insert(tx.tx_id, tx);
         }
     }
 
