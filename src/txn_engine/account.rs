@@ -1,26 +1,37 @@
-use serde::Serialize;
+use serde::{Serialize, ser::SerializeStruct};
 
 use crate::txn_engine::amt::Amt;
 
 pub type ClientId = u16;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub(crate) struct ClientAccount {
-    #[serde(rename = "client")]
+    // #[serde(rename = "client")]
     pub id: ClientId,
     pub available: Amt,
     pub held: Amt,
-    // probably unnecessary as it can be computed when needed (held + available)
-    // This creates a bottleneck ... total is the value that defines the maximum viable balance
-    // for an account
-    //
-    // If we calculate total only when needed total maximum viable balance would be theoretically twice as high
-    //
-    // For now total exists for easier Serialization but could be removed if performance or
-    // balance overflows became a problem
-    pub total: Amt,
     pub locked: bool,
 }
+
+impl Serialize for ClientAccount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        let mut state = serializer.serialize_struct("ClientAccount", 4)?;
+        state.serialize_field("client", &self.id)?;
+        state.serialize_field("available", &self.available)?;
+        state.serialize_field("held", &self.held)?;
+        // if available + held overflows we print i128::MAX. This is a number higher than the
+        // global GDP so this is a reasonable edgecase to print unprecisely
+        let total = self.available.checked_add(self.held).unwrap_or(Amt::from(i128::MAX));
+        state.serialize_field("total", &total)?;
+        state.serialize_field("locked", &self.locked)?;
+        state.end()
+    }
+}
+
+
 
 #[allow(unused)]
 impl ClientAccount {
@@ -29,7 +40,6 @@ impl ClientAccount {
             id,
             available: Amt::new(),
             held: Amt::new(),
-            total: Amt::new(),
             locked: false,
         }
     }
@@ -40,10 +50,8 @@ impl ClientAccount {
         }
 
         // Check for possible overflow
-        if let Some(new_total) = self.total.checked_add(amt)
-            && let Some(new_available) = self.available.checked_add(amt)
+        if let Some(new_available) = self.available.checked_add(amt)
         {
-            self.total = new_total;
             self.available = new_available;
         } else {
             return Err("deposit exceeds maximum balance");
@@ -63,7 +71,6 @@ impl ClientAccount {
 
         // we dont need to check for overflow since available is bigger than amt
         self.available -= amt;
-        self.total -= amt;
         Ok(())
     }
 
@@ -116,13 +123,7 @@ impl ClientAccount {
             return Err("not enough funds held to chargeback");
         }
 
-        if self.total < amt {
-            // this error should not be possible
-            return Err("not enough total funds to chargeback");
-        }
-
         self.held -= amt;
-        self.total -= amt;
 
         // freeze the account
         self.locked = true;
