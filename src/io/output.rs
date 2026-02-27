@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::types::AccountBalances;
+use crate::txn_engine::engine::AccountBalances;
 
 pub fn print_account_balances(balances: &AccountBalances) {
     let mut writer = csv::Writer::from_writer(io::stdout());

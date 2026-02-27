@@ -1,61 +1,12 @@
-use std::collections::HashMap;
 use std::fmt;
 
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
-pub type ClientId = u16;
-pub type TxId = u32;
-pub type AccountBalances = HashMap<ClientId, ClientAccountBalance>;
-
-#[derive(Debug, Deserialize)]
-#[allow(unused)]
-pub struct Transaction {
-    #[serde(rename = "type")]
-    tx_type: TransactionType,
-    #[serde(rename = "client")]
-    client_id: u16,
-    #[serde(rename = "tx")]
-    tx_id: TxId,
-    /// We will be scaling the amount values ourselves by the factor of 10 ^ 4
-    #[serde(rename = "amount")]
-    amt: Amt,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TransactionType {
-    Deposit,
-    Withdrawal,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ClientAccountBalance {
-    #[serde(rename = "client")]
-    pub id: ClientId,
-    pub available: Amt,
-    pub held: Amt,
-    // probably unnecessary as it can be computed when needed (held + available)
-    pub total: Amt,
-    pub locked: bool,
-}
-
-#[allow(unused)]
-impl ClientAccountBalance {
-    pub fn new(id: ClientId) -> Self {
-        Self {
-            id,
-            available: Amt::new(),
-            held: Amt::new(),
-            total: Amt::new(),
-            locked: false,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amt(i128);
 
+#[allow(unused)]
 impl Amt {
     const SCALE: i128 = 10_000;
 
@@ -96,7 +47,7 @@ impl fmt::Display for Amt {
             "{}{}.{}",
             sign,
             whole,
-            format!("{:0width$}", frac, width = width)
+            format_args!("{:0width$}", frac, width = width)
         )
     }
 }
@@ -116,9 +67,9 @@ fn parse_amt(s: &str) -> std::result::Result<Amt, &'static str> {
         return Err("empty string");
     }
 
-    // record if the value is prefixed with a -
+    // record if the value is prefixed with a '-'
     let negative = s.starts_with('-');
-    // remove 1 prefixed - or +
+    // remove 1 prefixed '-' or '+'
     let s = s
         .strip_prefix('-')
         .or_else(|| s.strip_prefix('+'))
