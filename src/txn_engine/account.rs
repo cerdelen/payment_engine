@@ -11,6 +11,13 @@ pub(crate) struct ClientAccount {
     pub available: Amt,
     pub held: Amt,
     // probably unnecessary as it can be computed when needed (held + available)
+    // This creates a bottleneck ... total is the value that defines the maximum viable balance
+    // for an account
+    //
+    // If we calculate total only when needed total maximum viable balance would be theoretically twice as high
+    //
+    // For now total exists for easier Serialization but could be removed if performance or
+    // balance overflows became a problem
     pub total: Amt,
     pub locked: bool,
 }
