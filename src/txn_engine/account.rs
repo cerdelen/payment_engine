@@ -41,9 +41,10 @@ impl ClientAccount {
 
         // Check for possible overflow
         if let Some(new_total) = self.total.checked_add(amt)
-            && let Some(new_available) = self.available.checked_add(amt) {
-                self.total = new_total;
-                self.available = new_available;
+            && let Some(new_available) = self.available.checked_add(amt)
+        {
+            self.total = new_total;
+            self.available = new_available;
         } else {
             return Err("Deposit exceeds maximum balance");
         }

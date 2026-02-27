@@ -23,7 +23,6 @@ impl TransactionEngine {
         }
     }
 
-
     /// Returns a reference to the current account balances of this [`TransactionEngine`].
     pub fn get_account_balances(&self) -> &AccountBalances {
         &self.balances
@@ -31,7 +30,10 @@ impl TransactionEngine {
 
     fn handle_deposit(&mut self, tx: Transaction) {
         let res = if let Some(amt) = tx.amt {
-            let account = self.balances.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            let account = self
+                .balances
+                .entry(tx.client_id)
+                .or_insert(ClientAccount::new(tx.client_id));
             account.deposit(amt)
         } else {
             Err("deposit transaction is missing an amount")
@@ -44,7 +46,10 @@ impl TransactionEngine {
 
     fn handle_withdrawal(&mut self, tx: Transaction) {
         let res = if let Some(amt) = tx.amt {
-            let account = self.balances.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
+            let account = self
+                .balances
+                .entry(tx.client_id)
+                .or_insert(ClientAccount::new(tx.client_id));
             account.withdraw(amt)
         } else {
             Err("withdrawal transaction is missing an amount")
