@@ -45,7 +45,7 @@ impl TransactionEngine {
         };
 
         if let Err(e) = res {
-            eprintln!("Error: Deposit for {} failed: {e}", tx.client_id);
+            eprintln!("Error: Transaction {:?}: {e}", tx);
         } else {
             self.transactions.insert(tx.tx_id, tx);
         }
@@ -63,17 +63,35 @@ impl TransactionEngine {
         };
 
         if let Err(e) = res {
-            eprintln!("Error: Withdrawal for {} failed: {e}", tx.client_id);
+            eprintln!("Error: Transaction {:?}: {e}", tx);
         } else {
             self.transactions.insert(tx.tx_id, tx);
         }
     }
 
-    fn handle_dispute(&mut self, tx: Transaction) {}
+    fn handle_dispute(&mut self, tx: Transaction) {
+        if tx.amt.is_some() {
+            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
+            return;
+        }
+        todo!()
+    }
 
-    fn handle_resolve(&mut self, tx: Transaction) {}
+    fn handle_resolve(&mut self, tx: Transaction) {
+        if tx.amt.is_some() {
+            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
+            return;
+        }
+        todo!()
+    }
 
-    fn handle_chargeback(&mut self, tx: Transaction) {}
+    fn handle_chargeback(&mut self, tx: Transaction) {
+        if tx.amt.is_some() {
+            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
+            return;
+        }
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -84,7 +102,6 @@ mod tests {
 
     // TODO
     // test deposit to frozen acc
-
     #[test]
     fn test_valid_deposits() {
         let mut engine = TransactionEngine::default();
@@ -255,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicated_tx_id_ignored() {
+    fn test_duplicated_tx_id_for_deposit_ignored() {
         let mut engine = TransactionEngine::default();
 
         engine.process_transaction(Transaction {
@@ -272,5 +289,64 @@ mod tests {
         });
 
         assert_eq!(engine.transactions.len(), 1);
+    }
+
+    #[test]
+    fn test_duplicated_tx_id_for_withdrawal_ignored() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Deposit,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Withdrawal,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+
+        assert_eq!(engine.transactions.len(), 1);
+    }
+
+    #[test]
+    fn test_chargeback_with_amt() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Chargeback,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        assert_eq!(engine.transactions.len(), 0);
+    }
+
+    #[test]
+    fn test_resolve_with_amt() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Resolve,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        assert_eq!(engine.transactions.len(), 0);
+    }
+
+    #[test]
+    fn test_dispute_with_amt() {
+        let mut engine = TransactionEngine::default();
+
+        engine.process_transaction(Transaction {
+            tx_type: TransactionType::Dispute,
+            client_id: 1,
+            tx_id: 1,
+            amt: Some(Amt::from(1)),
+        });
+        assert_eq!(engine.transactions.len(), 0);
     }
 }

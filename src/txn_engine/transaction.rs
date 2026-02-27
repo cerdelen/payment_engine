@@ -18,7 +18,7 @@ pub struct Transaction {
     pub amt: Option<Amt>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Deposit,
