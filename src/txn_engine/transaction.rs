@@ -5,7 +5,7 @@ use crate::txn_engine::{account::ClientId, amt::Amt};
 pub type TxId = u32;
 
 /// This struct represents an transaction event as input to be processed by the payment engine.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct TransactionInput {
     #[serde(rename = "type")]
@@ -19,7 +19,7 @@ pub struct TransactionInput {
     pub amt: Option<Amt>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Deposit,

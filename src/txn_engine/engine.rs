@@ -88,7 +88,7 @@ impl TransactionEngine {
     ///
     /// On Error returns [`TransactionError`].
     pub fn process_transaction(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
-        // Check for duplicated transaction id's for deposits or withdrawals
+        // Check for duplicated transaction ids for deposits or withdrawals
         // disputes, resolves and chargebacks will reference previous tx_ids with the tx_id field
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
             && self.deposits.contains_key(&tx.tx_id)

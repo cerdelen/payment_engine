@@ -28,8 +28,9 @@ fn run_main(args: Vec<String>) -> Result<(), String> {
     for record_res in txn_reader.deserialize::<TransactionInput>() {
         match record_res {
             Ok(tx) => {
+                let tx_clone = tx.clone();
                 if let Err(e) = engine.process_transaction(tx) {
-                    eprintln!("Transaction failed: {e}");
+                    eprintln!("Transaction failed {tx_clone:?}: {e}");
                 }
             }
             Err(e) => eprintln!("Error: getting record from CSV reader: {e}"),
