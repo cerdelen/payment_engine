@@ -2,8 +2,8 @@
 
 ## Ensuring correctness
 - No Floating-point types. Only strictly precise integer value for precision guarantees.
-- Extensive unit test suite. Aprox. 50 unit tests test for correct behaviour testing both happy path and all unhappy path variations.
-- Integration test test for correct output formating, as well as proper input validation as well as correct end states.
+- Extensive unit test suite. 50 unit tests test for correct behavior testing both happy path and all unhappy path variations.
+- Integration test test for correct output formatting, as well as proper input validation as well as correct end states.
 
 ## Safety and Robustness
 - Limiting unbounded Memory growth when more memory is not further reservable.
@@ -15,7 +15,7 @@
 - Valid Client ids are u16 and Tx ids even u32. This represents a considerable memory problem. Using try_reserve runtime panics are prevented but transactions might be rejected when memory  resources are limited. (More down below)
 
 ## Maintainability
-- Input, Output and processing are modularized enabling maintainability and exchangability.
+- Input, Output and processing are modularized enabling maintainability and exchangeability.
     Want to read from TCP streams instead of a singular CSV file?
     Exchange the Input Code.
     Want to write to Disk instead of stdout?
@@ -32,7 +32,7 @@
 - Amounts are fractional values with up to 4 decimal places.
 - Accepted formats:
     - "x", "x.x", "x.xx", "x.xxx", "x.xxxx"
-- Whole number strings are accepted up to the defined overflow boundries.
+- Whole number strings are accepted up to the defined overflow boundaries.
 - Output formatting is normalized to always include a decimal point and at least 1 decimal digit.
 
 ## Client & Transaction Semantics
@@ -42,14 +42,14 @@
 - A deposit moves funds from available to held. (If not overflow held and enough funds in available)
 - A resolve moves funds back from held to available. (If not overflow available, and enough funds in held)
 - A chargeback moves removes funds from held. (If enough funds in held) Also blocks the Client account, any further transactions will be rejected.
-- Only deposits cann be disputed.
-- Only disputed depoists can be resolved.
-- Only disputed depoists can be chargedback.
+- Only deposits can be disputed.
+- Only disputed deposits can be resolved.
+- Only disputed deposits can be chargedback.
 - Accounts are never allowed to go into negative balance
 
 ## Development Notes
 - The in memory store for past transaction grow unbounded with every new deposit. (using try_reserve to prevent runtime panics, but will reject transactions if memory is too restricted)
-- Since only deposits are dipsutable (and resolve/chargeback) no other transactions need to be stored.
+- Since only deposits are disputable (and resolve/chargeback) no other transactions need to be stored.
 - It could be argued that chargebacked deposits could be deleted as they cannot be disputed anymore.
 - In a more elaborate system one might look at other complexity improvements like splitting the stored transactions differently. E.g:
     - One idea is to group them by timestamp and either write them to disk at some point or delete them meaning after x amt of time any transaction is indisputable.
