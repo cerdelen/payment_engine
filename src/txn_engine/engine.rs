@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::{HashMap, TryReserveError}, fmt::Display};
 
 use crate::txn_engine::{
     account::{AccountError, ClientAccount, ClientId},
@@ -32,6 +32,7 @@ pub struct TransactionEngine {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionError {
     AccountError(AccountError),
+    NotEnoughMemoryAvailable(TryReserveError),
     DuplicatedTransactionId,
     AmtMissing,
     AmtPresent,
@@ -53,6 +54,9 @@ impl Display for TransactionError {
             TransactionError::AccountError(account_error) => {
                 write!(f, "account error: {account_error}")
             }
+            TransactionError::NotEnoughMemoryAvailable(try_reserve_error) => {
+                write!(f, "error trying to reserve space for internal states: {try_reserve_error}")
+            }
             TransactionError::DuplicatedTransactionId => write!(f, "duplicated transaction id"),
             TransactionError::AmtMissing => write!(f, "amt missing"),
             TransactionError::AmtPresent => write!(f, "amt present"),
@@ -69,6 +73,7 @@ impl Display for TransactionError {
 }
 
 impl TransactionEngine {
+    const BATCH_RESERVING: usize = 50;
     /// Processes a single transaction and updates account states.
     ///
     /// Handles following transaction types:
@@ -89,6 +94,20 @@ impl TransactionEngine {
             && self.deposits.contains_key(&tx.tx_id)
         {
             return Err(TransactionError::DuplicatedTransactionId);
+        }
+
+        // Deposits/accounts grow unbounded. Reserve proactively to prevent allocation panics.
+        // Use try_reserve + error propagation.
+        if self.deposits.capacity() <= self.deposits.len() {
+            self.deposits.try_reserve(Self::BATCH_RESERVING).map_err(|e| {
+                TransactionError::NotEnoughMemoryAvailable(e)
+            })?;
+        }
+
+        if self.accounts.capacity() <= self.accounts.len() {
+            self.accounts.try_reserve(Self::BATCH_RESERVING).map_err(|e| {
+                TransactionError::NotEnoughMemoryAvailable(e)
+            })?;
         }
 
         match tx.tx_type {
