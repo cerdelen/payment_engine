@@ -1201,4 +1201,58 @@ mod transaction_tests {
 
         assert_eq!(engine.deposits.len(), 1);
     }
+    #[test]
+    fn test_negative_value_input() {
+        let mut engine = TransactionEngine::default();
+
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Deposit,
+                client_id: 1,
+                tx_id: 1,
+                amt: Some(Amt::from(-1)),
+            }),
+            Err(TransactionError::NegativeAmtValue)
+        );
+
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Withdrawal,
+                client_id: 1,
+                tx_id: 2,
+                amt: Some(Amt::from(-1)),
+            }),
+            Err(TransactionError::NegativeAmtValue)
+        );
+
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Dispute,
+                client_id: 1,
+                tx_id: 3,
+                amt: Some(Amt::from(-1)),
+            }),
+            Err(TransactionError::NegativeAmtValue)
+        );
+
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Resolve,
+                client_id: 1,
+                tx_id: 4,
+                amt: Some(Amt::from(-1)),
+            }),
+            Err(TransactionError::NegativeAmtValue)
+        );
+
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Chargeback,
+                client_id: 1,
+                tx_id: 5,
+                amt: Some(Amt::from(-1)),
+            }),
+            Err(TransactionError::NegativeAmtValue)
+        );
+    }
 }
