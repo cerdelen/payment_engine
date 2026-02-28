@@ -1,8 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::txn_engine::{
-    account::{ClientAccount, ClientId},
-    transaction::{ProcessedTransaction, TransactionInput, TransactionStatus, TransactionType, TxId},
+    account::{AccountError, ClientAccount, ClientId},
+    transaction::{
+        ProcessedTransaction, TransactionInput, TransactionStatus, TransactionType, TxId,
+    },
 };
 
 pub type AccountBalances = HashMap<ClientId, ClientAccount>;
@@ -13,25 +15,78 @@ pub struct TransactionEngine {
     accounts: AccountBalances,
     /// Holds all previously processed Deposits and Withdrawals
     transactions: HashMap<TxId, ProcessedTransaction>,
+    // a counter for debug purposes to specify which transaction has failed
+    // txn_counter: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransactionError {
+    AccountError(AccountError),
+    DuplicatedTransactionId,
+    AmtMissing,
+    AmtPresent,
+    TransactionIdNotExistent,
+    TransactionNotDisputed,
+    TransactionNotDisputable,
+    ClientIdMismatch,
+    ReferencedTransactionNotDeposit,
+}
+
+impl From<AccountError> for TransactionError {
+    fn from(value: AccountError) -> Self {
+        Self::AccountError(value)
+    }
+}
+
+impl Display for TransactionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransactionError::AccountError(account_error) => {
+                write!(f, "account error: {account_error}")
+            }
+            TransactionError::DuplicatedTransactionId => write!(f, "duplicated transaction id"),
+            TransactionError::AmtMissing => write!(f, "amt missing"),
+            TransactionError::AmtPresent => write!(f, "amt present"),
+            TransactionError::TransactionIdNotExistent => {
+                write!(f, "transaction id referred to not existent")
+            }
+            TransactionError::TransactionNotDisputed => write!(f, "transaction is not disputed"),
+            TransactionError::TransactionNotDisputable => {
+                write!(f, "transaction is not disputable")
+            }
+            TransactionError::ClientIdMismatch => write!(f, "client id mismatch"),
+            TransactionError::ReferencedTransactionNotDeposit => {
+                write!(f, "referenced transaction is not a deposit")
+            }
+        }
+    }
 }
 
 impl TransactionEngine {
-    pub fn process_transaction(&mut self, tx: TransactionInput) {
+    pub fn process_transaction(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         // Check for duplicated transaction id's for deposits or withdrawals
         // disputs, resolves and chargebacks will reference previous tx_ids with the tx_id field
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
             && self.transactions.contains_key(&tx.tx_id)
         {
-            eprintln!("Error: Duplicated transaction id: {}", tx.client_id);
-            return;
+            eprintln!(
+                "Transaction failed: {}",
+                TransactionError::DuplicatedTransactionId
+            );
+            return Err(TransactionError::DuplicatedTransactionId);
         }
-        match tx.tx_type {
+        let res = match tx.tx_type {
             TransactionType::Deposit => self.handle_deposit(tx),
             TransactionType::Withdrawal => self.handle_withdrawal(tx),
             TransactionType::Dispute => self.handle_dispute(tx),
             TransactionType::Resolve => self.handle_resolve(tx),
             TransactionType::Chargeback => self.handle_chargeback(tx),
+        };
+
+        if res.is_err() {
+            eprintln!("Transaction failed: {res:?}");
         }
+        res
     }
 
     /// Returns a reference to the current account balances of this [`TransactionEngine`].
@@ -39,161 +94,151 @@ impl TransactionEngine {
         &self.accounts
     }
 
-    fn handle_deposit(&mut self, tx: TransactionInput) {
-        let res = if let Some(amt) = tx.amt {
+    fn handle_deposit(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
+        if tx.amt.is_none() {
+            return Err(TransactionError::AmtMissing);
+        }
+
+        if let Some(amt) = tx.amt {
             let account = self
                 .accounts
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
-            account.deposit(amt).map(|_| {
-                self.transactions.insert(
-                    tx.tx_id,
-                    ProcessedTransaction::new(
-                        tx.tx_type == TransactionType::Deposit,
-                        tx.client_id,
-                        amt,
-                    ),
-                );
-            })
-        } else {
-            Err("deposit transaction is missing an amount")
+            account.deposit(amt)?;
+            self.transactions.insert(
+                tx.tx_id,
+                ProcessedTransaction::new(
+                    tx.tx_type == TransactionType::Deposit,
+                    tx.client_id,
+                    amt,
+                ),
+            );
         };
 
-        if let Err(e) = res {
-            eprintln!("Error: Transaction {:?}: {e}", tx);
-        }
+        Ok(())
     }
 
-    fn handle_withdrawal(&mut self, tx: TransactionInput) {
-        let res = if let Some(amt) = tx.amt {
+    fn handle_withdrawal(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
+        if tx.amt.is_none() {
+            return Err(TransactionError::AmtMissing);
+        }
+
+        if let Some(amt) = tx.amt {
             let account = self
                 .accounts
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
-            account.withdraw(amt).map(|_| {
-                self.transactions.insert(
-                    tx.tx_id,
-                    ProcessedTransaction::new(
-                        tx.tx_type == TransactionType::Deposit,
-                        tx.client_id,
-                        amt,
-                    ),
-                );
-            })
-        } else {
-            Err("withdrawal transaction is missing an amount")
+            account.withdraw(amt)?;
+            self.transactions.insert(
+                tx.tx_id,
+                ProcessedTransaction::new(
+                    tx.tx_type == TransactionType::Deposit,
+                    tx.client_id,
+                    amt,
+                ),
+            );
         };
 
-        if let Err(e) = res {
-            eprintln!("Error: Transaction {:?}: {e}", tx);
-        }
+        Ok(())
     }
 
-    fn handle_dispute(&mut self, tx: TransactionInput) {
+    fn handle_dispute(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
-            eprintln!("Error: Transaction {:?}: dispute has an amount", tx);
-            return;
+            return Err(TransactionError::AmtPresent);
         }
-        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
-            // client id mismatch
-            if tx.client_id != processed_tx.client_id {
-                eprintln!("Error: Transaction {:?}: dispute referred client_id does not matched the client id of referred transaction", tx);
-                return ;
-            }
-            // check referenced id was a deposit
-            if !processed_tx.is_deposit {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
-                return ;
-            }
-            // check referenced id's satus is normal
-            if processed_tx.status != TransactionStatus::Normal {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
-                return ;
-            }
-            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
-            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
-            account.dispute(processed_tx.amt).map(|_| {
-                processed_tx.status = TransactionStatus::Disputed;
-            })
-        } else {
-            Err("transaction id reference in dispute does not exist")
-        };
 
-        if let Err(e) = res {
-            eprintln!("Error: Transaction {:?}: {e}", tx);
+        let processed_tx = self
+            .transactions
+            .get_mut(&tx.tx_id)
+            .ok_or(TransactionError::TransactionIdNotExistent)?;
+
+        // client id mismatch
+        if tx.client_id != processed_tx.client_id {
+            return Err(TransactionError::ClientIdMismatch);
         }
+        // check referenced id was a deposit
+        if !processed_tx.is_deposit {
+            return Err(TransactionError::ReferencedTransactionNotDeposit);
+        }
+        // check referenced id's satus is normal
+        if processed_tx.status != TransactionStatus::Normal {
+            return Err(TransactionError::TransactionNotDisputable);
+        }
+        // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+        let account = self
+            .accounts
+            .entry(tx.client_id)
+            .or_insert(ClientAccount::new(tx.client_id));
+        account.dispute(processed_tx.amt)?;
+        processed_tx.status = TransactionStatus::Disputed;
+
+        Ok(())
     }
 
-    fn handle_resolve(&mut self, tx: TransactionInput) {
+    fn handle_resolve(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
-            eprintln!("Error: Transaction {:?}: resolve has an amount", tx);
-            return;
+            return Err(TransactionError::AmtPresent);
         }
 
-        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
-            // client id mismatch
-            if tx.client_id != processed_tx.client_id {
-                eprintln!("Error: Transaction {:?}: resolve referred client_id does not matched the client id of referred transaction", tx);
-                return ;
-            }
-            // check referenced id was a deposit
-            if !processed_tx.is_deposit {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
-                return ;
-            }
-            // check referenced id's satus is disputed
-            if processed_tx.status != TransactionStatus::Disputed {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
-                return ;
-            }
-            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
-            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
-            account.resolve(processed_tx.amt).map(|_| {
-                processed_tx.status = TransactionStatus::Normal;
-            })
-        } else {
-            Err("transaction id reference in resolve does not exist")
-        };
+        let processed_tx = self
+            .transactions
+            .get_mut(&tx.tx_id)
+            .ok_or(TransactionError::TransactionIdNotExistent)?;
 
-        if let Err(e) = res {
-            eprintln!("Error: Transaction {:?}: {e}", tx);
+        // client id mismatch
+        if tx.client_id != processed_tx.client_id {
+            return Err(TransactionError::ClientIdMismatch);
         }
+        // check referenced id was a deposit
+        if !processed_tx.is_deposit {
+            return Err(TransactionError::ReferencedTransactionNotDeposit);
+        }
+        // check referenced id's satus is disputed
+        if processed_tx.status != TransactionStatus::Disputed {
+            return Err(TransactionError::TransactionNotDisputed);
+        }
+        // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+        let account = self
+            .accounts
+            .entry(tx.client_id)
+            .or_insert(ClientAccount::new(tx.client_id));
+        account.resolve(processed_tx.amt)?;
+        processed_tx.status = TransactionStatus::Normal;
+
+        Ok(())
     }
 
-    fn handle_chargeback(&mut self, tx: TransactionInput) {
+    fn handle_chargeback(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
-            eprintln!("Error: Transaction {:?}: chargeback has an amount", tx);
-            return;
+            return Err(TransactionError::AmtPresent);
         }
 
-        let res = if let Some(processed_tx) = self.transactions.get_mut(&tx.tx_id) {
-            // client id mismatch
-            if tx.client_id != processed_tx.client_id {
-                eprintln!("Error: Transaction {:?}: chargeback referred client_id does not matched the client id of referred transaction", tx);
-                return ;
-            }
-            // check referenced id was a deposit
-            if !processed_tx.is_deposit {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not a deposit", tx);
-                return ;
-            }
-            // check referenced id's satus is disputed
-            if processed_tx.status != TransactionStatus::Disputed {
-                eprintln!("Error: Transaction {:?}: referenced transaction is not disputed", tx);
-                return ;
-            }
-            // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
-            let account = self.accounts.entry(tx.client_id).or_insert(ClientAccount::new(tx.client_id));
-            account.chargeback(processed_tx.amt).map(|_| {
-                processed_tx.status = TransactionStatus::ChargedBack;
-            })
-        } else {
-            Err("transaction id reference in chargeback does not exist")
-        };
+        let processed_tx = self
+            .transactions
+            .get_mut(&tx.tx_id)
+            .ok_or(TransactionError::TransactionIdNotExistent)?;
 
-        if let Err(e) = res {
-            eprintln!("Error: Transaction {:?}: {e}", tx);
+        // client id mismatch
+        if tx.client_id != processed_tx.client_id {
+            return Err(TransactionError::ClientIdMismatch);
         }
+        // check referenced id was a deposit
+        if !processed_tx.is_deposit {
+            return Err(TransactionError::ReferencedTransactionNotDeposit);
+        }
+        // check referenced id's satus is disputed
+        if processed_tx.status != TransactionStatus::Disputed {
+            return Err(TransactionError::TransactionNotDisputed);
+        }
+        // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
+        let account = self
+            .accounts
+            .entry(tx.client_id)
+            .or_insert(ClientAccount::new(tx.client_id));
+        account.chargeback(processed_tx.amt)?;
+        processed_tx.status = TransactionStatus::ChargedBack;
+
+        Ok(())
     }
 }
 

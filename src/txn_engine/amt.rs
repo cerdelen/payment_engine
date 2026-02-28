@@ -17,10 +17,18 @@ impl SubAssign for Amt {
 impl Amt {
     const SCALE: i128 = 10_000;
 
+    /// Creates a new [`Amt`] with 0 value.
     #[inline]
     #[must_use]
     pub fn new() -> Self {
         Amt(0)
+    }
+
+    /// Creates a new [`Amt`] with maximum possible value.
+    #[inline]
+    #[must_use]
+    pub fn max() -> Self {
+        Amt(i128::MAX)
     }
 
     /// Instantiate an Amt. Be aware to scale the values accordingly.
@@ -41,6 +49,7 @@ impl Amt {
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         Some(Amt(self.0.checked_sub(rhs.0)?))
     }
+
 }
 
 impl fmt::Display for Amt {

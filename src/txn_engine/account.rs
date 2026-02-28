@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Serialize, ser::SerializeStruct};
 
 use crate::txn_engine::amt::Amt;
@@ -24,13 +26,33 @@ impl Serialize for ClientAccount {
         state.serialize_field("held", &self.held)?;
         // if available + held overflows we print i128::MAX. This is a number higher than the
         // global GDP so this is a reasonable edgecase to print unprecisely
-        let total = self.available.checked_add(self.held).unwrap_or(Amt::from(i128::MAX));
+        let total = self.available.checked_add(self.held).unwrap_or(Amt::max());
         state.serialize_field("total", &total)?;
         state.serialize_field("locked", &self.locked)?;
         state.end()
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AccountError {
+    AvailableOverflow,
+    HeldOverflow,
+    NotEnoughHeld,
+    NotEnoughAvailable,
+    AccountLocked,
+}
+
+impl Display for AccountError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AccountError::AvailableOverflow => write!(f, "overflows available funds"),
+            AccountError::HeldOverflow => write!(f, "overflows held funds"),
+            AccountError::NotEnoughHeld => write!(f, "not enough funds held"),
+            AccountError::NotEnoughAvailable => write!(f, "not enough funds available"),
+            AccountError::AccountLocked => write!(f, "account is locked"),
+        }
+    }
+}
 
 
 #[allow(unused)]
@@ -44,29 +66,28 @@ impl ClientAccount {
         }
     }
 
-    pub fn deposit(&mut self, amt: Amt) -> Result<(), &'static str> {
+    pub fn deposit(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
-            return Err("account is frozen");
+            return Err(AccountError::AccountLocked);
         }
 
         // Check for possible overflow
-        if let Some(new_available) = self.available.checked_add(amt)
-        {
+        if let Some(new_available) = self.available.checked_add(amt) {
             self.available = new_available;
         } else {
-            return Err("deposit exceeds maximum balance");
+            return Err(AccountError::AvailableOverflow);
         }
 
         Ok(())
     }
 
-    pub fn withdraw(&mut self, amt: Amt) -> Result<(), &'static str> {
+    pub fn withdraw(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
-            return Err("account is frozen");
+            return Err(AccountError::AccountLocked);
         }
 
         if self.available < amt {
-            return Err("not enough available funds to withdraw");
+            return Err(AccountError::NotEnoughAvailable);
         }
 
         // we dont need to check for overflow since available is bigger than amt
@@ -74,13 +95,13 @@ impl ClientAccount {
         Ok(())
     }
 
-    pub fn dispute(&mut self, amt: Amt) -> Result<(), &'static str> {
+    pub fn dispute(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
-            return Err("account is frozen");
+            return Err(AccountError::AccountLocked);
         }
 
         if self.available < amt {
-            return Err("not enough available funds to cover the disputed amt");
+            return Err(AccountError::NotEnoughAvailable);
         }
 
         // Check for possible overflow
@@ -88,19 +109,19 @@ impl ClientAccount {
             self.available -= amt;
             self.held = new_held;
         } else {
-            return Err("dispute overflows held amt");
+            return Err(AccountError::HeldOverflow);
         }
 
         Ok(())
     }
-    pub fn resolve(&mut self, amt: Amt) -> Result<(), &'static str> {
+
+    pub fn resolve(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
-            return Err("account is frozen");
+            return Err(AccountError::AccountLocked);
         }
 
         if self.held < amt {
-            // this error should not be possible
-            return Err("not enough funds held to resolve");
+            return Err(AccountError::NotEnoughHeld);
         }
 
         // Check for possible overflow
@@ -108,19 +129,19 @@ impl ClientAccount {
             self.available = new_available;
             self.held -= amt;
         } else {
-            return Err("resolve overflows available amt");
+            return Err(AccountError::AvailableOverflow);
         }
 
         Ok(())
     }
-    pub fn chargeback(&mut self, amt: Amt) -> Result<(), &'static str> {
+
+    pub fn chargeback(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
-            return Err("account is frozen");
+            return Err(AccountError::AccountLocked);
         }
 
         if self.held < amt {
-            // this error should not be possible
-            return Err("not enough funds held to chargeback");
+            return Err(AccountError::NotEnoughHeld);
         }
 
         self.held -= amt;
@@ -138,43 +159,236 @@ mod account_tests {
 
     use super::*;
 
-    // TODO
-    // test deposit to frozen acc
+    mod deposit {
+        use super::*;
+        #[test]
+        fn test_deposit_overflow() {
+            let mut acc = ClientAccount::new(1);
+            acc.available = Amt::max();
 
-    #[test]
-    fn test_valid_deposits() {
-        let mut acc = ClientAccount::new(1);
+            assert!(acc.deposit(Amt::from(1)).is_err());
+            assert!(acc.deposit(Amt::from(10000)).is_err());
 
-        acc.deposit(Amt::from(1)).unwrap();
-        assert_eq!(acc.available, Amt::from(1));
+            assert_eq!(acc.available, Amt::max());
 
-        acc.deposit(Amt::from(2)).unwrap();
-        assert_eq!(acc.available, Amt::from(3));
+            assert!(!acc.locked);
+        }
 
-        acc.deposit(Amt::from(3)).unwrap();
-        assert_eq!(acc.available, Amt::from(6));
+        #[test]
+        fn test_valid_deposits() {
+            let mut acc = ClientAccount::new(1);
+
+            acc.deposit(Amt::from(1)).unwrap();
+            assert_eq!(acc.available, Amt::from(1));
+
+            acc.deposit(Amt::from(2)).unwrap();
+            assert_eq!(acc.available, Amt::from(3));
+
+            acc.deposit(Amt::from(3)).unwrap();
+            assert_eq!(acc.available, Amt::from(6));
+
+            assert!(!acc.locked);
+        }
+    }
+
+    mod withdrawal {
+        use super::*;
+        #[test]
+        fn test_valid_withdrawal() {
+            let mut acc = ClientAccount::new(1);
+
+            // exactly to 0
+            acc.available = Amt::from(1);
+            acc.withdraw(Amt::from(1)).unwrap();
+            assert_eq!(acc.available, Amt::from(0));
+
+            // some is left available
+            acc.available = Amt::from(1000);
+            acc.withdraw(Amt::from(500)).unwrap();
+            assert_eq!(acc.available, Amt::from(500));
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_invalid_withdrawal() {
+            let mut acc = ClientAccount::new(1);
+
+            assert!(acc.withdraw(Amt::from(1)).is_err());
+
+            acc.available = Amt::from(1);
+            assert!(acc.withdraw(Amt::from(2)).is_err());
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_invalid_withdrawal_with_held_funds() {
+            let mut acc = ClientAccount::new(1);
+            acc.held = Amt::from(1000);
+
+            assert!(acc.withdraw(Amt::from(1)).is_err());
+
+            acc.available = Amt::from(1);
+            assert!(acc.withdraw(Amt::from(2)).is_err());
+
+            assert!(!acc.locked);
+        }
+    }
+
+    mod dispute {
+        use super::*;
+
+        #[test]
+        fn test_dispute_not_enough_available() {
+            let mut acc = ClientAccount::new(1);
+
+            assert!(acc.dispute(Amt::from(1)).is_err());
+
+            acc.available = Amt::from(1);
+            assert!(acc.dispute(Amt::from(2)).is_err());
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_dispute_overflow_held() {
+            let mut acc = ClientAccount::new(1);
+            acc.available = Amt::from(1);
+            acc.held = Amt::max();
+
+            assert!(acc.dispute(Amt::from(1)).is_err());
+            assert_eq!(acc.available, Amt::from(1));
+            assert_eq!(acc.held, Amt::max());
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_valid_dispute() {
+            let mut acc = ClientAccount::new(1);
+            acc.available = Amt::from(1);
+
+            acc.dispute(Amt::from(1)).unwrap();
+            assert_eq!(acc.held, Amt::from(1));
+            assert_eq!(acc.available, Amt::from(0));
+
+            acc.available = Amt::from(1000);
+            acc.dispute(Amt::from(500)).unwrap();
+            assert_eq!(acc.held, Amt::from(501));
+            assert_eq!(acc.available, Amt::from(500));
+
+            assert!(!acc.locked);
+        }
+    }
+
+    mod resovle {
+        use super::*;
+
+        #[test]
+        fn test_resolve_not_enough_held() {
+            let mut acc = ClientAccount::new(1);
+
+            assert!(acc.resolve(Amt::from(1)).is_err());
+
+            acc.held = Amt::from(500);
+
+            assert!(acc.resolve(Amt::from(1000)).is_err());
+            assert_eq!(acc.held, Amt::from(500));
+            assert_eq!(acc.available, Amt::from(0));
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_resolve_available_overflow() {
+            let mut acc = ClientAccount::new(1);
+            acc.held = Amt::from(1);
+            acc.available = Amt::max();
+
+            assert!(acc.resolve(Amt::from(1)).is_err());
+            assert_eq!(acc.held, Amt::from(1));
+            assert_eq!(acc.available, Amt::max());
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_valid_resolve() {
+            let mut acc = ClientAccount::new(1);
+            acc.held = Amt::from(1);
+
+            acc.resolve(Amt::from(1)).unwrap();
+            assert_eq!(acc.available, Amt::from(1));
+            assert_eq!(acc.held, Amt::from(0));
+
+            acc.held = Amt::from(1000);
+            acc.resolve(Amt::from(500)).unwrap();
+            assert_eq!(acc.available, Amt::from(501));
+            assert_eq!(acc.held, Amt::from(500));
+
+            assert!(!acc.locked);
+        }
+    }
+
+    mod chargeback {
+        use super::*;
+
+        #[test]
+        fn test_chargeback_not_enough_held() {
+            let mut acc = ClientAccount::new(1);
+
+            assert!(acc.chargeback(Amt::from(1)).is_err());
+
+            acc.held = Amt::from(500);
+
+            assert!(acc.chargeback(Amt::from(1000)).is_err());
+            assert_eq!(acc.held, Amt::from(500));
+            assert_eq!(acc.available, Amt::from(0));
+
+            assert!(!acc.locked);
+        }
+
+        #[test]
+        fn test_valid_chargeback() {
+            {
+                let mut acc = ClientAccount::new(1);
+
+                acc.held = Amt::from(500);
+                acc.chargeback(Amt::from(1)).unwrap();
+
+                assert_eq!(acc.held, Amt::from(499));
+                assert_eq!(acc.available, Amt::from(0));
+
+                assert!(acc.locked);
+            }
+
+            {
+                let mut acc = ClientAccount::new(1);
+
+                acc.held = Amt::from(500);
+                acc.chargeback(Amt::from(500)).unwrap();
+
+                assert_eq!(acc.held, Amt::from(0));
+                assert_eq!(acc.available, Amt::from(0));
+
+                assert!(acc.locked);
+            }
+        }
     }
 
     #[test]
-    fn test_valid_withdrawal() {
+    fn test_blocked_acct_refuse_any_transaction() {
         let mut acc = ClientAccount::new(1);
+        acc.locked = true;
 
-        acc.deposit(Amt::from(1)).unwrap();
-        acc.withdraw(Amt::from(1)).unwrap();
-        assert_eq!(acc.available, Amt::from(0));
-
-        acc.deposit(Amt::from(1000)).unwrap();
-        acc.withdraw(Amt::from(500)).unwrap();
-        assert_eq!(acc.available, Amt::from(500));
-    }
-
-    #[test]
-    fn test_invalid_withdrawal() {
-        let mut acc = ClientAccount::new(1);
-
+        assert!(acc.deposit(Amt::from(1)).is_err());
         assert!(acc.withdraw(Amt::from(1)).is_err());
+        assert!(acc.dispute(Amt::from(1)).is_err());
+        assert!(acc.resolve(Amt::from(1)).is_err());
+        assert!(acc.chargeback(Amt::from(1)).is_err());
 
-        acc.deposit(Amt::from(1)).unwrap();
-        assert!(acc.withdraw(Amt::from(2)).is_err());
+        // assert lock status did not change
+        assert!(acc.locked);
     }
 }
