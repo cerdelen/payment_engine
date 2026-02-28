@@ -20,6 +20,14 @@ For a payment processing agent it is sensible to not allow such a disputr as oth
 
 An account can never go into negative Balance
 
+thought about scaling
+the in memory store for past transaction grow unbounded with every new deposit.
+Since only deposits are dipsutable (and resolve/chargeback) no other transactions need to be stored.
+It could be argued that chargebacked deposits could be deleted as they cannot be disputed anymore.
+In a more elaborate system one might look at other complexity improvements like splitting the stored transactions differently.
+There are various ideas to be had.
+One idea is to group them by timestamp and either write them to disk at some point or delete them meaning after x amt of time any transaction is indisputable.
+Another idea is to store only the last x amount of transaction of any given user. This would mean only the past x amt of transaction of any user are disputable.
 
 AI Usage
 - writing serde serializer for decimal points with a precision of up to 4 digits after the decimal point
