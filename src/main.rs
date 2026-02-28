@@ -1,4 +1,3 @@
-use anyhow::{self, Result};
 use std::env;
 
 mod io;
@@ -13,13 +12,14 @@ use crate::{
     txn_engine::{engine::TransactionEngine, transaction::TransactionInput},
 };
 
-fn main() -> Result<()> {
+fn main() {
     let args: Vec<String> = env::args().collect();
-    run_main(args)?;
-    Ok(())
+    if let Err(e) = run_main(args) {
+        eprintln!("{e}");
+    }
 }
 
-fn run_main(args: Vec<String>) -> Result<()> {
+fn run_main(args: Vec<String>) -> Result<(), String> {
     let csv_file_path = verify_arg_count(args)?;
     let mut txn_reader = get_transactions_reader(&csv_file_path)?;
 
