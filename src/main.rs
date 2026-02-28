@@ -31,7 +31,7 @@ fn run_main(args: Vec<String>) -> Result<()> {
                 if let Err(e) = engine.process_transaction(tx) {
                     eprintln!("Transaction failed: {e}");
                 }
-            },
+            }
             Err(e) => eprintln!("Error: getting record from CSV reader: {e}"),
         }
     }

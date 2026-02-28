@@ -29,7 +29,6 @@ pub enum TransactionType {
     Chargeback,
 }
 
-
 /// This struct represents an already processed valid former transaction.
 #[derive(Debug)]
 #[allow(unused)]
@@ -42,7 +41,11 @@ pub struct ProcessedTransaction {
 impl ProcessedTransaction {
     /// Creates a new ProcessedTransaction struct with TransactionStatus 'Normal'.
     pub fn new(client_id: ClientId, amt: Amt) -> Self {
-        Self { client_id, amt, status: TransactionStatus::Normal }
+        Self {
+            client_id,
+            amt,
+            status: TransactionStatus::Normal,
+        }
     }
 }
 

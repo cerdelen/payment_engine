@@ -49,7 +49,6 @@ impl Amt {
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         Some(Amt(self.0.checked_sub(rhs.0)?))
     }
-
 }
 
 impl fmt::Display for Amt {

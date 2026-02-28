@@ -93,13 +93,8 @@ impl TransactionEngine {
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
             account.deposit(amt)?;
-            self.deposits.insert(
-                tx.tx_id,
-                ProcessedTransaction::new(
-                    tx.client_id,
-                    amt,
-                ),
-            );
+            self.deposits
+                .insert(tx.tx_id, ProcessedTransaction::new(tx.client_id, amt));
         };
 
         Ok(())
@@ -246,26 +241,32 @@ mod transaction_tests {
         fn test_valid_deposits() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
             assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(1));
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 2,
-                amt: Some(Amt::from(2)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(2)),
+                })
+                .unwrap();
             assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(3));
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 3,
-                amt: Some(Amt::from(3)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 3,
+                    amt: Some(Amt::from(3)),
+                })
+                .unwrap();
             assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(6));
             assert_eq!(engine.accounts.len(), 1);
         }
@@ -274,12 +275,14 @@ mod transaction_tests {
         fn test_valid_deposit_create_normal_transaction_status() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
             assert_eq!(
                 engine.deposits.get(&1).unwrap().status,
                 TransactionStatus::Normal
@@ -290,24 +293,30 @@ mod transaction_tests {
         fn test_correct_deposit_map_len_after_valid_deposits() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 2,
-                amt: Some(Amt::from(2)),
-            }).unwrap();
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 3,
-                amt: Some(Amt::from(3)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(2)),
+                })
+                .unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 3,
+                    amt: Some(Amt::from(3)),
+                })
+                .unwrap();
 
             assert_eq!(engine.deposits.len(), 3);
         }
@@ -316,12 +325,15 @@ mod transaction_tests {
         fn test_deposit_without_amt() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Withdrawal,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::AmtMissing));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::AmtMissing)
+            );
 
             assert!(engine.accounts.is_empty());
             assert!(engine.deposits.is_empty());
@@ -331,18 +343,23 @@ mod transaction_tests {
         fn test_duplicated_tx_id_for_deposit_ignored() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(2)),
-            }), Err(TransactionError::DuplicatedTransactionId));
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(2)),
+                }),
+                Err(TransactionError::DuplicatedTransactionId)
+            );
 
             assert_eq!(engine.deposits.len(), 1);
         }
@@ -355,32 +372,40 @@ mod transaction_tests {
         fn test_valid_withdrawal() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Withdrawal,
-                client_id: 1,
-                tx_id: 2,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
             assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(0));
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 3,
-                amt: Some(Amt::from(1000)),
-            }).unwrap();
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Withdrawal,
-                client_id: 1,
-                tx_id: 4,
-                amt: Some(Amt::from(500)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 3,
+                    amt: Some(Amt::from(1000)),
+                })
+                .unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 4,
+                    amt: Some(Amt::from(500)),
+                })
+                .unwrap();
             assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(500));
         }
 
@@ -388,12 +413,15 @@ mod transaction_tests {
         fn test_withdrawal_without_amt() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::AmtMissing));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::AmtMissing)
+            );
 
             assert!(engine.accounts.is_empty());
             assert!(engine.deposits.is_empty());
@@ -403,22 +431,26 @@ mod transaction_tests {
         fn test_duplicated_tx_id_for_withdrawal_ignored() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Withdrawal,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }), Err(TransactionError::DuplicatedTransactionId));
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                }),
+                Err(TransactionError::DuplicatedTransactionId)
+            );
 
             assert_eq!(engine.deposits.len(), 1);
         }
-
     }
 
     mod dispute {
@@ -428,12 +460,15 @@ mod transaction_tests {
         fn test_dispute_with_non_existent_transaction_id() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Dispute,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionIdNotExistent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
 
@@ -441,19 +476,24 @@ mod transaction_tests {
         fn test_dispute_with_client_id_mismatch() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Dispute,
-                client_id: 2,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::ClientIdMismatch));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 2,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::ClientIdMismatch)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -461,26 +501,33 @@ mod transaction_tests {
         fn test_dispute_with_transaction_not_disputable() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Dispute,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Dispute,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionNotDisputable));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputable)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -488,12 +535,15 @@ mod transaction_tests {
         fn test_dispute_with_amt() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Dispute,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }), Err(TransactionError::AmtPresent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                }),
+                Err(TransactionError::AmtPresent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
     }
@@ -505,12 +555,15 @@ mod transaction_tests {
         fn test_resolve_with_non_existent_transaction_id() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Resolve,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionIdNotExistent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
 
@@ -518,19 +571,24 @@ mod transaction_tests {
         fn test_resolve_with_client_id_mismatch() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Resolve,
-                client_id: 2,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::ClientIdMismatch));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 2,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::ClientIdMismatch)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -538,19 +596,24 @@ mod transaction_tests {
         fn test_resolve_with_transaction_not_disputed() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Resolve,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionNotDisputed));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputed)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -558,15 +621,17 @@ mod transaction_tests {
         fn test_resolve_with_amt() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Resolve,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }), Err(TransactionError::AmtPresent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                }),
+                Err(TransactionError::AmtPresent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
-
     }
 
     mod chargeback {
@@ -576,12 +641,15 @@ mod transaction_tests {
         fn test_chargeback_with_non_existent_transaction_id() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Chargeback,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionIdNotExistent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
 
@@ -589,19 +657,24 @@ mod transaction_tests {
         fn test_chargeback_with_client_id_mismatch() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Chargeback,
-                client_id: 2,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::ClientIdMismatch));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 2,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::ClientIdMismatch)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -609,19 +682,24 @@ mod transaction_tests {
         fn test_chargeback_with_transaction_not_disputed() {
             let mut engine = TransactionEngine::default();
 
-            engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Deposit,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }).unwrap();
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Chargeback,
-                client_id: 1,
-                tx_id: 1,
-                amt: None,
-            }), Err(TransactionError::TransactionNotDisputed));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputed)
+            );
             assert_eq!(engine.deposits.len(), 1);
         }
 
@@ -629,12 +707,15 @@ mod transaction_tests {
         fn test_chargeback_with_amt() {
             let mut engine = TransactionEngine::default();
 
-            assert_eq!(engine.process_transaction(TransactionInput {
-                tx_type: TransactionType::Chargeback,
-                client_id: 1,
-                tx_id: 1,
-                amt: Some(Amt::from(1)),
-            }), Err(TransactionError::AmtPresent));
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                }),
+                Err(TransactionError::AmtPresent)
+            );
             assert_eq!(engine.deposits.len(), 0);
         }
     }
@@ -643,30 +724,38 @@ mod transaction_tests {
     fn test_correct_deposit_map_len_after_valid_withdrawals() {
         let mut engine = TransactionEngine::default();
 
-        engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Deposit,
-            client_id: 1,
-            tx_id: 1,
-            amt: Some(Amt::from(1)),
-        }).unwrap();
-        engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Withdrawal,
-            client_id: 1,
-            tx_id: 2,
-            amt: Some(Amt::from(1)),
-        }).unwrap();
-        engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Deposit,
-            client_id: 1,
-            tx_id: 3,
-            amt: Some(Amt::from(1000)),
-        }).unwrap();
-        engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Withdrawal,
-            client_id: 1,
-            tx_id: 4,
-            amt: Some(Amt::from(500)),
-        }).unwrap();
+        engine
+            .process_transaction(TransactionInput {
+                tx_type: TransactionType::Deposit,
+                client_id: 1,
+                tx_id: 1,
+                amt: Some(Amt::from(1)),
+            })
+            .unwrap();
+        engine
+            .process_transaction(TransactionInput {
+                tx_type: TransactionType::Withdrawal,
+                client_id: 1,
+                tx_id: 2,
+                amt: Some(Amt::from(1)),
+            })
+            .unwrap();
+        engine
+            .process_transaction(TransactionInput {
+                tx_type: TransactionType::Deposit,
+                client_id: 1,
+                tx_id: 3,
+                amt: Some(Amt::from(1000)),
+            })
+            .unwrap();
+        engine
+            .process_transaction(TransactionInput {
+                tx_type: TransactionType::Withdrawal,
+                client_id: 1,
+                tx_id: 4,
+                amt: Some(Amt::from(500)),
+            })
+            .unwrap();
 
         assert_eq!(engine.deposits.len(), 2);
     }
@@ -675,21 +764,26 @@ mod transaction_tests {
     fn test_correct_deposit_map_len_after_invalid_withdrawals() {
         let mut engine = TransactionEngine::default();
 
-        engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Deposit,
-            client_id: 1,
-            tx_id: 1,
-            amt: Some(Amt::from(1)),
-        }).unwrap();
-        assert_eq!(engine.process_transaction(TransactionInput {
-            tx_type: TransactionType::Withdrawal,
-            client_id: 1,
-            tx_id: 4,
-            amt: Some(Amt::from(500)),
-        }), Err(TransactionError::AccountError(AccountError::NotEnoughAvailable)));
+        engine
+            .process_transaction(TransactionInput {
+                tx_type: TransactionType::Deposit,
+                client_id: 1,
+                tx_id: 1,
+                amt: Some(Amt::from(1)),
+            })
+            .unwrap();
+        assert_eq!(
+            engine.process_transaction(TransactionInput {
+                tx_type: TransactionType::Withdrawal,
+                client_id: 1,
+                tx_id: 4,
+                amt: Some(Amt::from(500)),
+            }),
+            Err(TransactionError::AccountError(
+                AccountError::NotEnoughAvailable
+            ))
+        );
 
         assert_eq!(engine.deposits.len(), 1);
     }
-
-
 }

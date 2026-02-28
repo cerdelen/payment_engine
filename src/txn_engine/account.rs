@@ -18,7 +18,7 @@ pub(crate) struct ClientAccount {
 impl Serialize for ClientAccount {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer
+        S: serde::Serializer,
     {
         let mut state = serializer.serialize_struct("ClientAccount", 4)?;
         state.serialize_field("client", &self.id)?;
@@ -53,7 +53,6 @@ impl Display for AccountError {
         }
     }
 }
-
 
 #[allow(unused)]
 impl ClientAccount {
