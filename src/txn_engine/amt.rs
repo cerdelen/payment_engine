@@ -100,56 +100,74 @@ impl Serialize for Amt {
     }
 }
 
-fn parse_amt(s: &str) -> std::result::Result<Amt, &'static str> {
-    let s = s.trim();
-    if s.is_empty() {
-        return Err("empty string");
-    }
+impl TryFrom<&str> for Amt {
+    type Error = &'static str;
 
-    // record if the value is prefixed with a '-'
-    let negative = s.starts_with('-');
-    // remove 1 prefixed '-' or '+'
-    let s = s
-        .strip_prefix('-')
-        .or_else(|| s.strip_prefix('+'))
-        .unwrap_or(s);
-
-    let (whole_value_str, fraction_value_str) = match s.split_once('.') {
-        Some((w, f)) => {
-            // empty fractional part when a decimal point is present will not be allowed (eg. "1.")
-            if f.is_empty() {
-                return Err("empty fractional part");
-            }
-            (w, f)
+    /// Parses a decimal string representation into an [`Amt`].
+    ///
+    /// Supports optional '+/-" prefix and trims whitespaces.
+    ///
+    /// Handles up to a precision of 4 after the decimal point.
+    /// E.g.: "1.2345", "-2.0000" or "3"
+    ///
+    /// # Errors
+    ///
+    /// Returns an Error if:
+    /// - Empty/whitespace only string
+    /// - Invalid decimals (e.g. "1.", ".1234", "1..2")
+    /// - Non numeric chars
+    /// - Fractional part len > 4
+    /// - Integer overflow ([`Amt`] wraps a i128 scaled by [`Amt::SCALE`]
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let s = value.trim();
+        if s.is_empty() {
+            return Err("empty string");
         }
-        // empty fractional part when no decimal point is present will  be allowed (eg. "1")
-        None => (s, ""),
-    };
 
-    if whole_value_str.is_empty() || !whole_value_str.chars().all(|c| c.is_ascii_digit()) {
-        return Err("invalid integer part");
+        // record if the value is prefixed with a '-'
+        let negative = s.starts_with('-');
+        // remove 1 prefixed '-' or '+'
+        let s = s
+            .strip_prefix('-')
+            .or_else(|| s.strip_prefix('+'))
+            .unwrap_or(s);
+
+        let (whole_value_str, fraction_value_str) = match s.split_once('.') {
+            Some((w, f)) => {
+                // empty fractional part when a decimal point is present will not be allowed (eg. "1.")
+                if f.is_empty() {
+                    return Err("empty fractional part");
+                }
+                (w, f)
+            }
+            // empty fractional part when no decimal point is present will  be allowed (eg. "1")
+            None => (s, ""),
+        };
+
+        if whole_value_str.is_empty() || !whole_value_str.chars().all(|c| c.is_ascii_digit()) {
+            return Err("invalid integer part");
+        }
+
+        if fraction_value_str.len() > 4 || !fraction_value_str.chars().all(|c| c.is_ascii_digit()) {
+            return Err("invalid fractional part");
+        }
+
+        let whole_value: i128 = whole_value_str.parse().map_err(|_| "integer overflow")?;
+        let fractional_value: i128 = fraction_value_str.parse().unwrap_or(0);
+        let fractional_value: i128 =
+            fractional_value * 10_i128.pow(4 - fraction_value_str.len() as u32);
+
+        let mut value = whole_value
+            .checked_mul(Amt::SCALE)
+            .and_then(|v| v.checked_add(fractional_value))
+            .ok_or("value overflow")?;
+
+        if negative {
+            value = value.checked_neg().ok_or("value underflow")?;
+        }
+        Ok(Amt(value))
     }
-
-    if fraction_value_str.len() > 4 || !fraction_value_str.chars().all(|c| c.is_ascii_digit()) {
-        return Err("invalid fractional part");
-    }
-
-    let whole_value: i128 = whole_value_str.parse().map_err(|_| "integer overflow")?;
-    let fractional_value: i128 = fraction_value_str.parse().unwrap_or(0);
-    let fractional_value: i128 =
-        fractional_value * 10_i128.pow(4 - fraction_value_str.len() as u32);
-
-    let mut value = whole_value
-        .checked_mul(Amt::SCALE)
-        .and_then(|v| v.checked_add(fractional_value))
-        .ok_or("value overflow")?;
-
-    if negative {
-        value = value.checked_neg().ok_or("value underflow")?;
-    }
-    Ok(Amt(value))
 }
-// A general assumption is that we dont use any amounts bigger than (2^127 - 1) / 10 ^ 4
 
 struct AmtVisitor;
 impl<'de> Visitor<'de> for AmtVisitor {
@@ -166,7 +184,7 @@ impl<'de> Visitor<'de> for AmtVisitor {
     where
         E: serde::de::Error,
     {
-        parse_amt(v).map_err(E::custom)
+        Amt::try_from(v).map_err(E::custom)
     }
 }
 
@@ -181,37 +199,38 @@ impl<'de> Deserialize<'de> for Amt {
 
 #[test]
 fn test_invalid_amt_strings() {
-    assert!(parse_amt("1.23456").is_err());
-    assert!(parse_amt("1a1.23456").is_err());
-    assert!(parse_amt("1.2a34").is_err());
-    assert!(parse_amt("1.").is_err());
-    assert!(parse_amt("a").is_err());
-    assert!(parse_amt("").is_err());
+    assert!(Amt::try_from("1.23456").is_err());
+    assert!(Amt::try_from("1a1.23456").is_err());
+    assert!(Amt::try_from("1.2a34").is_err());
+    assert!(Amt::try_from("1.").is_err());
+    assert!(Amt::try_from("a").is_err());
+    assert!(Amt::try_from("").is_err());
     assert!(
-        parse_amt(
+        Amt::try_from(
             "9999999999999999999999999999999999999999999999999999999999999999999999999999999"
         )
         .is_err()
     );
-    assert!(parse_amt("--1.2345").is_err());
-    assert!(parse_amt("++1.2345").is_err());
-    assert!(parse_amt("+-1.2345").is_err());
-    assert!(parse_amt("-+1.2345").is_err());
+    assert!(Amt::try_from("--1.2345").is_err());
+    assert!(Amt::try_from("++1.2345").is_err());
+    assert!(Amt::try_from("+-1.2345").is_err());
+    assert!(Amt::try_from("-+1.2345").is_err());
+    assert!(Amt::try_from("1..2").is_err());
 }
 
 #[test]
 fn test_valid_amt_strings() {
-    assert_eq!(parse_amt("1.2345").unwrap(), Amt(12345));
-    assert_eq!(parse_amt("-1.2345").unwrap(), Amt(-12345));
-    assert_eq!(parse_amt("+1.2345").unwrap(), Amt(12345));
+    assert_eq!(Amt::try_from("1.2345").unwrap(), Amt(12345));
+    assert_eq!(Amt::try_from("-1.2345").unwrap(), Amt(-12345));
+    assert_eq!(Amt::try_from("+1.2345").unwrap(), Amt(12345));
     assert_eq!(
-        parse_amt("19053420985320985.2345").unwrap(),
+        Amt::try_from("19053420985320985.2345").unwrap(),
         Amt(190534209853209852345)
     );
-    assert_eq!(parse_amt("1").unwrap(), Amt(10000));
-    assert_eq!(parse_amt("1.2").unwrap(), Amt(12000));
-    assert_eq!(parse_amt("1.23").unwrap(), Amt(12300));
-    assert_eq!(parse_amt("1.234").unwrap(), Amt(12340));
+    assert_eq!(Amt::try_from("1").unwrap(), Amt(10000));
+    assert_eq!(Amt::try_from("1.2").unwrap(), Amt(12000));
+    assert_eq!(Amt::try_from("1.23").unwrap(), Amt(12300));
+    assert_eq!(Amt::try_from("1.234").unwrap(), Amt(12340));
 }
 
 #[test]
@@ -237,11 +256,11 @@ fn test_valid_amt_string_serialize_into_deserialze() {
     ];
 
     for test_string in test_strings {
-        let amt: Amt = parse_amt(test_string).unwrap();
+        let amt: Amt = Amt::try_from(test_string).unwrap();
         assert_eq!(amt.to_string(), test_string, "failed for '{test_string}'");
     }
     for (test_string_non_normalized, expected_normalization_string) in non_normalized_values {
-        let amt: Amt = parse_amt(test_string_non_normalized).unwrap();
+        let amt: Amt = Amt::try_from(test_string_non_normalized).unwrap();
         assert_eq!(
             amt.to_string(),
             expected_normalization_string,
