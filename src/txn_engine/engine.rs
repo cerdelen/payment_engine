@@ -9,14 +9,24 @@ use crate::txn_engine::{
 
 pub type AccountBalances = HashMap<ClientId, ClientAccount>;
 
+/// Stateful transaction engine for processing transaction streams.
+///
+/// This struct maintains client account states (available / held funds, blocked status) and tracks
+/// processed deposits for dispute/chargeback operations. It provides a single entry point
+/// [`process_transaction`], for sequential transaction processing.
+///
+/// # Features
+///
+/// - **Account tracking**: Maintains 'available', 'held', 'total' and 'blocked' state per client
+/// - **Possible transactions**: 'deposit', 'withdrawal', 'dispute', 'resolve' and 'chargeback'
+/// - **Dispute lifecycle**: Supports 'deposit' -> 'dispute' -> 'resolve/chargeback'
+/// - **Precision**: Exact 4-decimal arithmetic using scaled i128 integer
 #[derive(Debug, Default)]
 pub struct TransactionEngine {
-    /// Holds all ClientAccounts encountered
+    /// Holds all [`ClientAccounts`] encountered
     accounts: AccountBalances,
-    /// Holds all previously processed Deposits and Withdrawals
+    /// Holds all previously processed deposits as [`ProcessedTransaction`].
     deposits: HashMap<TxId, ProcessedTransaction>,
-    // a counter for debug purposes to specify which transaction has failed
-    // txn_counter: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +69,19 @@ impl Display for TransactionError {
 }
 
 impl TransactionEngine {
+    /// Processes a single transaction and updates account states.
+    ///
+    /// Handles following transaction types:
+    /// - `TransactionType::Deposit`: Adds funds to available balance
+    /// - `TransactionType::Withdrawal`: Deducts funds from available balance
+    /// - `TransactionType::Dispute`: Decreases available balance by deposit amt and increases held
+    ///   by the same amt. Only deposits are disputable.
+    /// - `TransactionType::Resolve`: Returns disputed amt from held to available balance.
+    /// - `TransactionType::Chargeback`: Removes disputed amt permanently from held balance.
+    ///
+    /// # Errors
+    ///
+    /// On Error returns [`TransactionError`].
     pub fn process_transaction(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         // Check for duplicated transaction id's for deposits or withdrawals
         // disputs, resolves and chargebacks will reference previous tx_ids with the tx_id field
@@ -82,6 +105,12 @@ impl TransactionEngine {
         &self.accounts
     }
 
+    /// Handles a Deposit. Delegates to [`ClientAccount::deposit()`] after input Validation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the transaction does not specify an Amt to deposit
+    /// or propagates Errors from [`ClientAccount::deposit()`].
     fn handle_deposit(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         let amt = tx.amt.ok_or(TransactionError::AmtMissing)?;
 
@@ -96,6 +125,12 @@ impl TransactionEngine {
         Ok(())
     }
 
+    /// Handles a Withdrawal. Delegates to [`ClientAccount::withdraw()`] after input Validation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the transaction does not specify an Amt to withdraw
+    /// or propagates Errors from [`ClientAccount::withdraw()`].
     fn handle_withdrawal(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         let amt = tx.amt.ok_or(TransactionError::AmtMissing)?;
 
@@ -108,6 +143,19 @@ impl TransactionEngine {
         Ok(())
     }
 
+    /// Handles a dispute. Delegates to [`ClientAccount::dispute()`] after input Validation.
+    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::Disputed`].
+    /// On success will reduce available balance and increase held balance by the amt of the disputed deposit.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - transaction specifies an Amt (A dispute takes the Amt from the disputed deposit)
+    /// - referenced [`TxId`] does not exist
+    /// - transaction [`ClientId`] does not match the [`Client`] of the disputed deposit
+    /// - disputed deposit is already disputed / chargebacked
+    /// - referenced transaction is a withdrawal (will be returned as TransactionIdNotExistent Error)
+    /// - any Errors propagated by [`ClientAccount::dispute()`]
     fn handle_dispute(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
             return Err(TransactionError::AmtPresent);
@@ -139,6 +187,19 @@ impl TransactionEngine {
         Ok(())
     }
 
+    /// Handles a resolve. Delegates to [`ClientAccount::resolve()`] after input Validation.
+    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::Normal`].
+    /// On success will reduce held balance and increase available balance by the amt of the disputed deposit.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - transaction specifies an Amt (A resolve takes the Amt from the disputed deposit)
+    /// - referenced [`TxId`] does not exist
+    /// - transaction [`ClientId`] does not match the [`Client`] of the disputed deposit
+    /// - disputed deposit is not disputed
+    /// - referenced transaction is a withdrawal (will be returned as TransactionIdNotExistent Error)
+    /// - any Errors propagated by [`ClientAccount::resolve()`]
     fn handle_resolve(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
             return Err(TransactionError::AmtPresent);
@@ -170,6 +231,19 @@ impl TransactionEngine {
         Ok(())
     }
 
+    /// Handles a chargeback. Delegates to [`ClientAccount::chargeback()`] after input Validation.
+    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::ChargedBack`].
+    /// On success will reduce held balance by the amt of the disputed deposit.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - transaction specifies an Amt (A resolve takes the Amt from the disputed deposit)
+    /// - referenced [`TxId`] does not exist
+    /// - transaction [`ClientId`] does not match the [`Client`] of the disputed deposit
+    /// - disputed deposit is not disputed
+    /// - referenced transaction is a withdrawal (will be returned as TransactionIdNotExistent Error)
+    /// - any Errors propagated by [`ClientAccount::resolve()`]
     fn handle_chargeback(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         if tx.amt.is_some() {
             return Err(TransactionError::AmtPresent);

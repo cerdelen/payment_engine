@@ -4,6 +4,18 @@ use std::ops::SubAssign;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
+/// Fixed precision amount type for financial transactions (precise for 4 decimal places).
+///
+/// Wraps an i128 values which is scaled by 10_000. This enables exact and efficient decimal
+/// arithmatics without the rounding problems that come with using floating point numbers in Rust.
+///
+/// # Scaling
+///
+/// Multiply Money amounts by [`Self::SCALE`] to initialize.
+/// ```rust
+/// let mut balance = Amt::from(10_0000); // $10.00
+/// balance -= Amt::from(2500); // $2.50
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amt(i128);
 
@@ -15,7 +27,7 @@ impl SubAssign for Amt {
 
 #[allow(unused)]
 impl Amt {
-    const SCALE: i128 = 10_000;
+    pub const SCALE: i128 = 10_000;
 
     /// Creates a new [`Amt`] with 0 value.
     #[inline]
