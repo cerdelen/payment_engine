@@ -197,74 +197,79 @@ impl<'de> Deserialize<'de> for Amt {
     }
 }
 
-#[test]
-fn test_invalid_amt_strings() {
-    assert!(Amt::try_from("1.23456").is_err());
-    assert!(Amt::try_from("1a1.23456").is_err());
-    assert!(Amt::try_from("1.2a34").is_err());
-    assert!(Amt::try_from("1.").is_err());
-    assert!(Amt::try_from("a").is_err());
-    assert!(Amt::try_from("").is_err());
-    assert!(
-        Amt::try_from(
-            "9999999999999999999999999999999999999999999999999999999999999999999999999999999"
-        )
-        .is_err()
-    );
-    assert!(Amt::try_from("--1.2345").is_err());
-    assert!(Amt::try_from("++1.2345").is_err());
-    assert!(Amt::try_from("+-1.2345").is_err());
-    assert!(Amt::try_from("-+1.2345").is_err());
-    assert!(Amt::try_from("1..2").is_err());
-}
+#[cfg(test)]
+mod test_amt {
+    use super::*;
 
-#[test]
-fn test_valid_amt_strings() {
-    assert_eq!(Amt::try_from("1.2345").unwrap(), Amt(12345));
-    assert_eq!(Amt::try_from("-1.2345").unwrap(), Amt(-12345));
-    assert_eq!(Amt::try_from("+1.2345").unwrap(), Amt(12345));
-    assert_eq!(
-        Amt::try_from("19053420985320985.2345").unwrap(),
-        Amt(190534209853209852345)
-    );
-    assert_eq!(Amt::try_from("1").unwrap(), Amt(10000));
-    assert_eq!(Amt::try_from("1.2").unwrap(), Amt(12000));
-    assert_eq!(Amt::try_from("1.23").unwrap(), Amt(12300));
-    assert_eq!(Amt::try_from("1.234").unwrap(), Amt(12340));
-}
-
-#[test]
-fn test_valid_amt_string_serialize_into_deserialize() {
-    let test_strings = [
-        "1.234",
-        "1.23",
-        "1.2",
-        "19053420985320985.2345",
-        "-1.2345",
-        "1.2345",
-        "0.0",
-    ];
-    let non_normalized_values = [
-        ("1.00", "1.0"),
-        ("-1", "-1.0"),
-        ("+1", "1.0"),
-        ("1", "1.0"),
-        ("-0", "0.0"),
-        ("+0", "0.0"),
-        ("0", "0.0"),
-        ("+1.2345", "1.2345"),
-    ];
-
-    for test_string in test_strings {
-        let amt: Amt = Amt::try_from(test_string).unwrap();
-        assert_eq!(amt.to_string(), test_string, "failed for '{test_string}'");
-    }
-    for (test_string_non_normalized, expected_normalization_string) in non_normalized_values {
-        let amt: Amt = Amt::try_from(test_string_non_normalized).unwrap();
-        assert_eq!(
-            amt.to_string(),
-            expected_normalization_string,
-            "failed for '{test_string_non_normalized}'"
+    #[test]
+    fn test_invalid_amt_strings() {
+        assert!(Amt::try_from("1.23456").is_err());
+        assert!(Amt::try_from("1a1.23456").is_err());
+        assert!(Amt::try_from("1.2a34").is_err());
+        assert!(Amt::try_from("1.").is_err());
+        assert!(Amt::try_from("a").is_err());
+        assert!(Amt::try_from("").is_err());
+        assert!(
+            Amt::try_from(
+                "9999999999999999999999999999999999999999999999999999999999999999999999999999999"
+            )
+            .is_err()
         );
+        assert!(Amt::try_from("--1.2345").is_err());
+        assert!(Amt::try_from("++1.2345").is_err());
+        assert!(Amt::try_from("+-1.2345").is_err());
+        assert!(Amt::try_from("-+1.2345").is_err());
+        assert!(Amt::try_from("1..2").is_err());
+    }
+
+    #[test]
+    fn test_valid_amt_strings() {
+        assert_eq!(Amt::try_from("1.2345").unwrap(), Amt(12345));
+        assert_eq!(Amt::try_from("-1.2345").unwrap(), Amt(-12345));
+        assert_eq!(Amt::try_from("+1.2345").unwrap(), Amt(12345));
+        assert_eq!(
+            Amt::try_from("19053420985320985.2345").unwrap(),
+            Amt(190534209853209852345)
+        );
+        assert_eq!(Amt::try_from("1").unwrap(), Amt(10000));
+        assert_eq!(Amt::try_from("1.2").unwrap(), Amt(12000));
+        assert_eq!(Amt::try_from("1.23").unwrap(), Amt(12300));
+        assert_eq!(Amt::try_from("1.234").unwrap(), Amt(12340));
+    }
+
+    #[test]
+    fn test_valid_amt_string_serialize_into_deserialize() {
+        let test_strings = [
+            "1.234",
+            "1.23",
+            "1.2",
+            "19053420985320985.2345",
+            "-1.2345",
+            "1.2345",
+            "0.0",
+        ];
+        let non_normalized_values = [
+            ("1.00", "1.0"),
+            ("-1", "-1.0"),
+            ("+1", "1.0"),
+            ("1", "1.0"),
+            ("-0", "0.0"),
+            ("+0", "0.0"),
+            ("0", "0.0"),
+            ("+1.2345", "1.2345"),
+        ];
+
+        for test_string in test_strings {
+            let amt: Amt = Amt::try_from(test_string).unwrap();
+            assert_eq!(amt.to_string(), test_string, "failed for '{test_string}'");
+        }
+        for (test_string_non_normalized, expected_normalization_string) in non_normalized_values {
+            let amt: Amt = Amt::try_from(test_string_non_normalized).unwrap();
+            assert_eq!(
+                amt.to_string(),
+                expected_normalization_string,
+                "failed for '{test_string_non_normalized}'"
+            );
+        }
     }
 }
