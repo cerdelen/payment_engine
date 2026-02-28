@@ -29,7 +29,6 @@ pub enum TransactionError {
     TransactionNotDisputed,
     TransactionNotDisputable,
     ClientIdMismatch,
-    ReferencedTransactionNotDeposit,
 }
 
 impl From<AccountError> for TransactionError {
@@ -55,9 +54,6 @@ impl Display for TransactionError {
                 write!(f, "transaction is not disputable")
             }
             TransactionError::ClientIdMismatch => write!(f, "client id mismatch"),
-            TransactionError::ReferencedTransactionNotDeposit => {
-                write!(f, "referenced transaction is not a deposit")
-            }
         }
     }
 }
@@ -69,24 +65,16 @@ impl TransactionEngine {
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
             && self.deposits.contains_key(&tx.tx_id)
         {
-            eprintln!(
-                "Transaction failed: {}",
-                TransactionError::DuplicatedTransactionId
-            );
             return Err(TransactionError::DuplicatedTransactionId);
         }
-        let res = match tx.tx_type {
+
+        match tx.tx_type {
             TransactionType::Deposit => self.handle_deposit(tx),
             TransactionType::Withdrawal => self.handle_withdrawal(tx),
             TransactionType::Dispute => self.handle_dispute(tx),
             TransactionType::Resolve => self.handle_resolve(tx),
             TransactionType::Chargeback => self.handle_chargeback(tx),
-        };
-
-        if res.is_err() {
-            eprintln!("Transaction failed: {res:?}");
         }
-        res
     }
 
     /// Returns a reference to the current account balances of this [`TransactionEngine`].

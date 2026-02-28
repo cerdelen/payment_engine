@@ -26,10 +26,13 @@ fn run_main(args: Vec<String>) -> Result<()> {
     let mut engine = TransactionEngine::default();
 
     for record_res in txn_reader.deserialize::<TransactionInput>() {
-        if let Ok(tx) = record_res {
-            engine.process_transaction(tx);
-        } else {
-            // log Error
+        match record_res {
+            Ok(tx) => {
+                if let Err(e) = engine.process_transaction(tx) {
+                    eprintln!("Transaction failed: {e}");
+                }
+            },
+            Err(e) => eprintln!("Error: getting record from CSV reader: {e}"),
         }
     }
 
