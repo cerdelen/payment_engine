@@ -208,24 +208,7 @@ mod transaction_tests {
     use crate::txn_engine::{amt::Amt, transaction::TransactionStatus};
 
     use super::*;
-    // TODO
-    // dispute valid deposit (works)
-    // dispute client_id mismatch
-    // dispute disputed transaction (does not work)
-    // dispute chargebacked transaction (does not work)
-    // dispute withrdaw (does not work)
-    // resolve disputed deposit (works)
-    // resolve undisputed deposit (does not work)
-    // resolve withdraw (cannot be dispted -> does not work)
-    // resolve chargebacked transaction (does not work)
-    // resolve client_id mismatch
-    // chargeback client_id mismatch
-    // chargeback withrdaw (does not work)
-    // chargeback undisputed transaction (does not work)
-    // chargeback chargebacked transaction (does not work)
 
-    // TODO
-    // test deposit to frozen acc
     mod deposit {
         use super::*;
 
@@ -449,6 +432,32 @@ mod transaction_tests {
         use super::*;
 
         #[test]
+        fn test_valid_dispute() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+        }
+
+        #[test]
         fn test_dispute_with_non_existent_transaction_id() {
             let mut engine = TransactionEngine::default();
 
@@ -489,8 +498,87 @@ mod transaction_tests {
             assert_eq!(engine.deposits.len(), 1);
         }
 
+        // Only Deposits are stored since only deposits can be disputed. Therefore the Error will
+        // be TransactionIdNonExistent
         #[test]
-        fn test_dispute_with_transaction_not_disputable() {
+        fn test_dispute_withdrawal() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
+            assert_eq!(engine.deposits.len(), 1);
+        }
+
+        #[test]
+        fn test_dispute_chargeback_deposit() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputable)
+            );
+            assert_eq!(engine.deposits.len(), 1);
+        }
+
+        #[test]
+        fn test_dispute_already_disputed_deposit() {
             let mut engine = TransactionEngine::default();
 
             engine
@@ -542,6 +630,44 @@ mod transaction_tests {
 
     mod resolve {
         use super::*;
+
+        #[test]
+        fn test_valid_resolve() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Normal);
+        }
 
         #[test]
         fn test_resolve_with_non_existent_transaction_id() {
@@ -624,10 +750,126 @@ mod transaction_tests {
             );
             assert_eq!(engine.deposits.len(), 0);
         }
+
+        #[test]
+        fn test_resolve_withdraw() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
+            assert_eq!(engine.deposits.len(), 1);
+        }
+
+        #[test]
+        fn test_resolve_chargebacked_transaction() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Resolve,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputed)
+            );
+
+            assert_eq!(engine.deposits.len(), 1);
+        }
     }
 
     mod chargeback {
         use super::*;
+
+        #[test]
+        fn test_valid_chargeback() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::ChargedBack);
+        }
 
         #[test]
         fn test_chargeback_with_non_existent_transaction_id() {
@@ -709,6 +951,88 @@ mod transaction_tests {
                 Err(TransactionError::AmtPresent)
             );
             assert_eq!(engine.deposits.len(), 0);
+        }
+
+        #[test]
+        fn test_chargeback_withdraw() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionIdNotExistent)
+            );
+            assert_eq!(engine.deposits.len(), 1);
+        }
+
+        #[test]
+        fn test_chargeback_chargebacked_deposit() {
+            let mut engine = TransactionEngine::default();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Dispute,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                })
+                .unwrap();
+
+            assert_eq!(engine.deposits.len(), 1);
+            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::ChargedBack);
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Chargeback,
+                    client_id: 1,
+                    tx_id: 1,
+                    amt: None,
+                }),
+                Err(TransactionError::TransactionNotDisputed)
+            );
         }
     }
 
