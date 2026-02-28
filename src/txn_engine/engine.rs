@@ -40,6 +40,7 @@ pub enum TransactionError {
     TransactionNotDisputed,
     TransactionNotDisputable,
     ClientIdMismatch,
+    NegativeAmtValue,
 }
 
 impl From<AccountError> for TransactionError {
@@ -60,6 +61,7 @@ impl Display for TransactionError {
             TransactionError::DuplicatedTransactionId => write!(f, "duplicated transaction id"),
             TransactionError::AmtMissing => write!(f, "amt missing"),
             TransactionError::AmtPresent => write!(f, "amt present"),
+            TransactionError::NegativeAmtValue => write!(f, "amt value negative (only positive values allowed)"),
             TransactionError::TransactionIdNotExistent => {
                 write!(f, "transaction id referred to not existent")
             }
@@ -94,6 +96,10 @@ impl TransactionEngine {
             && self.deposits.contains_key(&tx.tx_id)
         {
             return Err(TransactionError::DuplicatedTransactionId);
+        }
+
+        if let Some(amt) = tx.amt && amt.is_negative() {
+            return Err(TransactionError::NegativeAmtValue);
         }
 
         // Deposits/accounts grow unbounded. Reserve proactively to prevent allocation panics.

@@ -29,6 +29,11 @@ impl SubAssign for Amt {
 impl Amt {
     pub const SCALE: i128 = 10_000;
 
+    /// Returns [`true`] if the value is negative.
+    pub fn is_negative(&self) -> bool {
+        self.0 < 0
+    }
+
     /// Creates a new [`Amt`] with 0 value.
     #[inline]
     #[must_use]
