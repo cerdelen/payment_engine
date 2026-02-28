@@ -89,7 +89,7 @@ impl TransactionEngine {
     /// On Error returns [`TransactionError`].
     pub fn process_transaction(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
         // Check for duplicated transaction id's for deposits or withdrawals
-        // disputs, resolves and chargebacks will reference previous tx_ids with the tx_id field
+        // disputes, resolves and chargebacks will reference previous tx_ids with the tx_id field
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
             && self.deposits.contains_key(&tx.tx_id)
         {
@@ -163,7 +163,7 @@ impl TransactionEngine {
     }
 
     /// Handles a dispute. Delegates to [`ClientAccount::dispute()`] after input Validation.
-    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::Disputed`].
+    /// On success will set the [`TransactionStatus`] of the disputed Transaction to [`TransactionStatus::Disputed`].
     /// On success will reduce available balance and increase held balance by the amt of the disputed deposit.
     ///
     /// # Errors
@@ -190,7 +190,7 @@ impl TransactionEngine {
             return Err(TransactionError::ClientIdMismatch);
         }
 
-        // check referenced id's satus is normal
+        // check referenced id's status is normal
         if processed_tx.status != TransactionStatus::Normal {
             return Err(TransactionError::TransactionNotDisputable);
         }
@@ -207,7 +207,7 @@ impl TransactionEngine {
     }
 
     /// Handles a resolve. Delegates to [`ClientAccount::resolve()`] after input Validation.
-    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::Normal`].
+    /// On success will set the [`TransactionStatus`] of the disputed Transaction to [`TransactionStatus::Normal`].
     /// On success will reduce held balance and increase available balance by the amt of the disputed deposit.
     ///
     /// # Errors
@@ -234,7 +234,7 @@ impl TransactionEngine {
             return Err(TransactionError::ClientIdMismatch);
         }
 
-        // check referenced id's satus is disputed
+        // check referenced id's status is disputed
         if processed_tx.status != TransactionStatus::Disputed {
             return Err(TransactionError::TransactionNotDisputed);
         }
@@ -251,7 +251,7 @@ impl TransactionEngine {
     }
 
     /// Handles a chargeback. Delegates to [`ClientAccount::chargeback()`] after input Validation.
-    /// On success will set the [`TransactionStatus`] of the disptued Transaction to [`TransactionStatus::ChargedBack`].
+    /// On success will set the [`TransactionStatus`] of the disputed Transaction to [`TransactionStatus::ChargedBack`].
     /// On success will reduce held balance by the amt of the disputed deposit.
     ///
     /// # Errors
@@ -278,7 +278,7 @@ impl TransactionEngine {
             return Err(TransactionError::ClientIdMismatch);
         }
 
-        // check referenced id's satus is disputed
+        // check referenced id's status is disputed
         if processed_tx.status != TransactionStatus::Disputed {
             return Err(TransactionError::TransactionNotDisputed);
         }

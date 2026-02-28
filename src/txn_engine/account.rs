@@ -89,7 +89,7 @@ impl ClientAccount {
             return Err(AccountError::NotEnoughAvailable);
         }
 
-        // we dont need to check for overflow since available is bigger than amt
+        // we do not need to check for overflow since available is bigger than amt
         self.available -= amt;
         Ok(())
     }
@@ -281,7 +281,7 @@ mod account_tests {
         }
     }
 
-    mod resovle {
+    mod resolve {
         use super::*;
 
         #[test]

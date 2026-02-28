@@ -47,6 +47,3 @@ fn wrong_parameter_count() {
     ];
     assert!(verify_arg_count(args).is_err());
 }
-
-#[test]
-fn file_doesnt_exist() {}

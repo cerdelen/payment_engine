@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// Fixed precision amount type for financial transactions (precise for 4 decimal places).
 ///
 /// Wraps an i128 values which is scaled by 10_000. This enables exact and efficient decimal
-/// arithmatics without the rounding problems that come with using floating point numbers in Rust.
+/// arithmetics without the rounding problems that come with using floating point numbers in Rust.
 ///
 /// # Scaling
 ///
@@ -234,7 +234,7 @@ fn test_valid_amt_strings() {
 }
 
 #[test]
-fn test_valid_amt_string_serialize_into_deserialze() {
+fn test_valid_amt_string_serialize_into_deserialize() {
     let test_strings = [
         "1.234",
         "1.23",
