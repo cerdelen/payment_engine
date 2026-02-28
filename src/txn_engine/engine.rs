@@ -14,7 +14,7 @@ pub struct TransactionEngine {
     /// Holds all ClientAccounts encountered
     accounts: AccountBalances,
     /// Holds all previously processed Deposits and Withdrawals
-    transactions: HashMap<TxId, ProcessedTransaction>,
+    deposits: HashMap<TxId, ProcessedTransaction>,
     // a counter for debug purposes to specify which transaction has failed
     // txn_counter: usize,
 }
@@ -67,7 +67,7 @@ impl TransactionEngine {
         // Check for duplicated transaction id's for deposits or withdrawals
         // disputs, resolves and chargebacks will reference previous tx_ids with the tx_id field
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
-            && self.transactions.contains_key(&tx.tx_id)
+            && self.deposits.contains_key(&tx.tx_id)
         {
             eprintln!(
                 "Transaction failed: {}",
@@ -105,10 +105,9 @@ impl TransactionEngine {
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
             account.deposit(amt)?;
-            self.transactions.insert(
+            self.deposits.insert(
                 tx.tx_id,
                 ProcessedTransaction::new(
-                    tx.tx_type == TransactionType::Deposit,
                     tx.client_id,
                     amt,
                 ),
@@ -129,15 +128,7 @@ impl TransactionEngine {
                 .entry(tx.client_id)
                 .or_insert(ClientAccount::new(tx.client_id));
             account.withdraw(amt)?;
-            self.transactions.insert(
-                tx.tx_id,
-                ProcessedTransaction::new(
-                    tx.tx_type == TransactionType::Deposit,
-                    tx.client_id,
-                    amt,
-                ),
-            );
-        };
+        }
 
         Ok(())
     }
@@ -148,7 +139,7 @@ impl TransactionEngine {
         }
 
         let processed_tx = self
-            .transactions
+            .deposits
             .get_mut(&tx.tx_id)
             .ok_or(TransactionError::TransactionIdNotExistent)?;
 
@@ -156,10 +147,7 @@ impl TransactionEngine {
         if tx.client_id != processed_tx.client_id {
             return Err(TransactionError::ClientIdMismatch);
         }
-        // check referenced id was a deposit
-        if !processed_tx.is_deposit {
-            return Err(TransactionError::ReferencedTransactionNotDeposit);
-        }
+
         // check referenced id's satus is normal
         if processed_tx.status != TransactionStatus::Normal {
             return Err(TransactionError::TransactionNotDisputable);
@@ -169,6 +157,7 @@ impl TransactionEngine {
             .accounts
             .entry(tx.client_id)
             .or_insert(ClientAccount::new(tx.client_id));
+
         account.dispute(processed_tx.amt)?;
         processed_tx.status = TransactionStatus::Disputed;
 
@@ -181,7 +170,7 @@ impl TransactionEngine {
         }
 
         let processed_tx = self
-            .transactions
+            .deposits
             .get_mut(&tx.tx_id)
             .ok_or(TransactionError::TransactionIdNotExistent)?;
 
@@ -189,10 +178,7 @@ impl TransactionEngine {
         if tx.client_id != processed_tx.client_id {
             return Err(TransactionError::ClientIdMismatch);
         }
-        // check referenced id was a deposit
-        if !processed_tx.is_deposit {
-            return Err(TransactionError::ReferencedTransactionNotDeposit);
-        }
+
         // check referenced id's satus is disputed
         if processed_tx.status != TransactionStatus::Disputed {
             return Err(TransactionError::TransactionNotDisputed);
@@ -202,6 +188,7 @@ impl TransactionEngine {
             .accounts
             .entry(tx.client_id)
             .or_insert(ClientAccount::new(tx.client_id));
+
         account.resolve(processed_tx.amt)?;
         processed_tx.status = TransactionStatus::Normal;
 
@@ -214,7 +201,7 @@ impl TransactionEngine {
         }
 
         let processed_tx = self
-            .transactions
+            .deposits
             .get_mut(&tx.tx_id)
             .ok_or(TransactionError::TransactionIdNotExistent)?;
 
@@ -222,19 +209,18 @@ impl TransactionEngine {
         if tx.client_id != processed_tx.client_id {
             return Err(TransactionError::ClientIdMismatch);
         }
-        // check referenced id was a deposit
-        if !processed_tx.is_deposit {
-            return Err(TransactionError::ReferencedTransactionNotDeposit);
-        }
+
         // check referenced id's satus is disputed
         if processed_tx.status != TransactionStatus::Disputed {
             return Err(TransactionError::TransactionNotDisputed);
         }
+
         // client account should always exist as we have already found a valid deposit but as a fallback we create a new empty account.
         let account = self
             .accounts
             .entry(tx.client_id)
             .or_insert(ClientAccount::new(tx.client_id));
+
         account.chargeback(processed_tx.amt)?;
         processed_tx.status = TransactionStatus::ChargedBack;
 
@@ -304,7 +290,7 @@ mod tests {
             amt: Some(Amt::from(1)),
         });
         assert_eq!(
-            engine.transactions.get(&1).unwrap().status,
+            engine.deposits.get(&1).unwrap().status,
             TransactionStatus::Normal
         );
         // assert_eq!(engine.accounts.get(&1).unwrap().available, Amt::from(6));
@@ -334,7 +320,7 @@ mod tests {
             amt: Some(Amt::from(3)),
         });
 
-        assert_eq!(engine.transactions.len(), 3);
+        assert_eq!(engine.deposits.len(), 3);
     }
 
     #[test]
@@ -366,7 +352,7 @@ mod tests {
             amt: Some(Amt::from(500)),
         });
 
-        assert_eq!(engine.transactions.len(), 4);
+        assert_eq!(engine.deposits.len(), 2);
     }
 
     #[test]
@@ -386,7 +372,7 @@ mod tests {
             amt: Some(Amt::from(500)),
         });
 
-        assert_eq!(engine.transactions.len(), 1);
+        assert_eq!(engine.deposits.len(), 1);
     }
 
     #[test]
@@ -434,7 +420,7 @@ mod tests {
         });
 
         assert!(engine.accounts.is_empty());
-        assert!(engine.transactions.is_empty());
+        assert!(engine.deposits.is_empty());
     }
 
     #[test]
@@ -449,7 +435,7 @@ mod tests {
         });
 
         assert!(engine.accounts.is_empty());
-        assert!(engine.transactions.is_empty());
+        assert!(engine.deposits.is_empty());
     }
 
     #[test]
@@ -469,7 +455,7 @@ mod tests {
             amt: Some(Amt::from(2)),
         });
 
-        assert_eq!(engine.transactions.len(), 1);
+        assert_eq!(engine.deposits.len(), 1);
     }
 
     #[test]
@@ -489,7 +475,7 @@ mod tests {
             amt: Some(Amt::from(1)),
         });
 
-        assert_eq!(engine.transactions.len(), 1);
+        assert_eq!(engine.deposits.len(), 1);
     }
 
     #[test]
@@ -502,7 +488,7 @@ mod tests {
             tx_id: 1,
             amt: Some(Amt::from(1)),
         });
-        assert_eq!(engine.transactions.len(), 0);
+        assert_eq!(engine.deposits.len(), 0);
     }
 
     #[test]
@@ -515,7 +501,7 @@ mod tests {
             tx_id: 1,
             amt: Some(Amt::from(1)),
         });
-        assert_eq!(engine.transactions.len(), 0);
+        assert_eq!(engine.deposits.len(), 0);
     }
 
     #[test]
@@ -528,6 +514,6 @@ mod tests {
             tx_id: 1,
             amt: Some(Amt::from(1)),
         });
-        assert_eq!(engine.transactions.len(), 0);
+        assert_eq!(engine.deposits.len(), 0);
     }
 }

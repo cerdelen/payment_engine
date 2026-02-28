@@ -34,7 +34,6 @@ pub enum TransactionType {
 #[derive(Debug)]
 #[allow(unused)]
 pub struct ProcessedTransaction {
-    pub is_deposit: bool,
     pub client_id: u16,
     pub amt: Amt,
     pub status: TransactionStatus,
@@ -42,8 +41,8 @@ pub struct ProcessedTransaction {
 
 impl ProcessedTransaction {
     /// Creates a new ProcessedTransaction struct with TransactionStatus 'Normal'.
-    pub fn new(is_deposit: bool, client_id: ClientId, amt: Amt) -> Self {
-        Self { is_deposit, client_id, amt, status: TransactionStatus::Normal }
+    pub fn new(client_id: ClientId, amt: Amt) -> Self {
+        Self { client_id, amt, status: TransactionStatus::Normal }
     }
 }
 
