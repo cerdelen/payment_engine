@@ -83,35 +83,27 @@ impl TransactionEngine {
     }
 
     fn handle_deposit(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
-        if tx.amt.is_none() {
-            return Err(TransactionError::AmtMissing);
-        }
+        let amt = tx.amt.ok_or(TransactionError::AmtMissing)?;
 
-        if let Some(amt) = tx.amt {
-            let account = self
-                .accounts
-                .entry(tx.client_id)
-                .or_insert(ClientAccount::new(tx.client_id));
-            account.deposit(amt)?;
-            self.deposits
-                .insert(tx.tx_id, ProcessedTransaction::new(tx.client_id, amt));
-        };
+        let account = self
+            .accounts
+            .entry(tx.client_id)
+            .or_insert(ClientAccount::new(tx.client_id));
+        account.deposit(amt)?;
+        self.deposits
+            .insert(tx.tx_id, ProcessedTransaction::new(tx.client_id, amt));
 
         Ok(())
     }
 
     fn handle_withdrawal(&mut self, tx: TransactionInput) -> Result<(), TransactionError> {
-        if tx.amt.is_none() {
-            return Err(TransactionError::AmtMissing);
-        }
+        let amt = tx.amt.ok_or(TransactionError::AmtMissing)?;
 
-        if let Some(amt) = tx.amt {
-            let account = self
-                .accounts
-                .entry(tx.client_id)
-                .or_insert(ClientAccount::new(tx.client_id));
-            account.withdraw(amt)?;
-        }
+        let account = self
+            .accounts
+            .entry(tx.client_id)
+            .or_insert(ClientAccount::new(tx.client_id));
+        account.withdraw(amt)?;
 
         Ok(())
     }
