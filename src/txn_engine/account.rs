@@ -165,8 +165,8 @@ mod account_tests {
             let mut acc = ClientAccount::new(1);
             acc.available = Amt::max();
 
-            assert!(acc.deposit(Amt::from(1)).is_err());
-            assert!(acc.deposit(Amt::from(10000)).is_err());
+            assert_eq!(acc.deposit(Amt::from(1)), Err(AccountError::AvailableOverflow));
+            assert_eq!(acc.deposit(Amt::from(10000)), Err(AccountError::AvailableOverflow));
 
             assert_eq!(acc.available, Amt::max());
 
@@ -213,10 +213,10 @@ mod account_tests {
         fn test_invalid_withdrawal() {
             let mut acc = ClientAccount::new(1);
 
-            assert!(acc.withdraw(Amt::from(1)).is_err());
+            assert_eq!(acc.withdraw(Amt::from(1)), Err(AccountError::NotEnoughAvailable));
 
             acc.available = Amt::from(1);
-            assert!(acc.withdraw(Amt::from(2)).is_err());
+            assert_eq!(acc.withdraw(Amt::from(2)), Err(AccountError::NotEnoughAvailable));
 
             assert!(!acc.locked);
         }
@@ -226,10 +226,10 @@ mod account_tests {
             let mut acc = ClientAccount::new(1);
             acc.held = Amt::from(1000);
 
-            assert!(acc.withdraw(Amt::from(1)).is_err());
+            assert_eq!(acc.withdraw(Amt::from(1)), Err(AccountError::NotEnoughAvailable));
 
             acc.available = Amt::from(1);
-            assert!(acc.withdraw(Amt::from(2)).is_err());
+            assert_eq!(acc.withdraw(Amt::from(2)), Err(AccountError::NotEnoughAvailable));
 
             assert!(!acc.locked);
         }
@@ -242,10 +242,10 @@ mod account_tests {
         fn test_dispute_not_enough_available() {
             let mut acc = ClientAccount::new(1);
 
-            assert!(acc.dispute(Amt::from(1)).is_err());
+            assert_eq!(acc.dispute(Amt::from(1)), Err(AccountError::NotEnoughAvailable));
 
             acc.available = Amt::from(1);
-            assert!(acc.dispute(Amt::from(2)).is_err());
+            assert_eq!(acc.dispute(Amt::from(2)), Err(AccountError::NotEnoughAvailable));
 
             assert!(!acc.locked);
         }
@@ -256,7 +256,7 @@ mod account_tests {
             acc.available = Amt::from(1);
             acc.held = Amt::max();
 
-            assert!(acc.dispute(Amt::from(1)).is_err());
+            assert_eq!(acc.dispute(Amt::from(1)), Err(AccountError::HeldOverflow));
             assert_eq!(acc.available, Amt::from(1));
             assert_eq!(acc.held, Amt::max());
 
@@ -288,11 +288,11 @@ mod account_tests {
         fn test_resolve_not_enough_held() {
             let mut acc = ClientAccount::new(1);
 
-            assert!(acc.resolve(Amt::from(1)).is_err());
+            assert_eq!(acc.resolve(Amt::from(1)), Err(AccountError::NotEnoughHeld));
 
             acc.held = Amt::from(500);
 
-            assert!(acc.resolve(Amt::from(1000)).is_err());
+            assert_eq!(acc.resolve(Amt::from(1000)), Err(AccountError::NotEnoughHeld));
             assert_eq!(acc.held, Amt::from(500));
             assert_eq!(acc.available, Amt::from(0));
 
@@ -305,7 +305,7 @@ mod account_tests {
             acc.held = Amt::from(1);
             acc.available = Amt::max();
 
-            assert!(acc.resolve(Amt::from(1)).is_err());
+            assert_eq!(acc.resolve(Amt::from(1)), Err(AccountError::AvailableOverflow));
             assert_eq!(acc.held, Amt::from(1));
             assert_eq!(acc.available, Amt::max());
 
@@ -337,11 +337,11 @@ mod account_tests {
         fn test_chargeback_not_enough_held() {
             let mut acc = ClientAccount::new(1);
 
-            assert!(acc.chargeback(Amt::from(1)).is_err());
+            assert_eq!(acc.chargeback(Amt::from(1)), Err(AccountError::NotEnoughHeld));
 
             acc.held = Amt::from(500);
 
-            assert!(acc.chargeback(Amt::from(1000)).is_err());
+            assert_eq!(acc.chargeback(Amt::from(1000)), Err(AccountError::NotEnoughHeld));
             assert_eq!(acc.held, Amt::from(500));
             assert_eq!(acc.available, Amt::from(0));
 
@@ -381,11 +381,11 @@ mod account_tests {
         let mut acc = ClientAccount::new(1);
         acc.locked = true;
 
-        assert!(acc.deposit(Amt::from(1)).is_err());
-        assert!(acc.withdraw(Amt::from(1)).is_err());
-        assert!(acc.dispute(Amt::from(1)).is_err());
-        assert!(acc.resolve(Amt::from(1)).is_err());
-        assert!(acc.chargeback(Amt::from(1)).is_err());
+        assert_eq!(acc.deposit(Amt::from(1)), Err(AccountError::AccountLocked));
+        assert_eq!(acc.withdraw(Amt::from(1)), Err(AccountError::AccountLocked));
+        assert_eq!(acc.dispute(Amt::from(1)), Err(AccountError::AccountLocked));
+        assert_eq!(acc.resolve(Amt::from(1)), Err(AccountError::AccountLocked));
+        assert_eq!(acc.chargeback(Amt::from(1)), Err(AccountError::AccountLocked));
 
         // assert lock status did not change
         assert!(acc.locked);
