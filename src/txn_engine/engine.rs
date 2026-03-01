@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, TryReserveError}, fmt::Display};
+use std::{
+    collections::{HashMap, TryReserveError},
+    fmt::Display,
+};
 
 use crate::txn_engine::{
     account::{AccountError, ClientAccount, ClientId},
@@ -56,12 +59,17 @@ impl Display for TransactionError {
                 write!(f, "account error: {account_error}")
             }
             TransactionError::NotEnoughMemoryAvailable(try_reserve_error) => {
-                write!(f, "error trying to reserve space for internal states: {try_reserve_error}")
+                write!(
+                    f,
+                    "error trying to reserve space for internal states: {try_reserve_error}"
+                )
             }
             TransactionError::DuplicatedTransactionId => write!(f, "duplicated transaction id"),
             TransactionError::AmtMissing => write!(f, "amt missing"),
             TransactionError::AmtPresent => write!(f, "amt present"),
-            TransactionError::NegativeAmtValue => write!(f, "amt value negative (only positive values allowed)"),
+            TransactionError::NegativeAmtValue => {
+                write!(f, "amt value negative (only positive values allowed)")
+            }
             TransactionError::TransactionIdNotExistent => {
                 write!(f, "transaction id referred to not existent")
             }
@@ -98,22 +106,24 @@ impl TransactionEngine {
             return Err(TransactionError::DuplicatedTransactionId);
         }
 
-        if let Some(amt) = tx.amt && amt.is_negative() {
+        if let Some(amt) = tx.amt
+            && amt.is_negative()
+        {
             return Err(TransactionError::NegativeAmtValue);
         }
 
         // Deposits/accounts grow unbounded. Reserve proactively to prevent allocation panics.
         // Use try_reserve + error propagation.
         if self.deposits.capacity() <= self.deposits.len() {
-            self.deposits.try_reserve(Self::BATCH_RESERVING).map_err(|e| {
-                TransactionError::NotEnoughMemoryAvailable(e)
-            })?;
+            self.deposits
+                .try_reserve(Self::BATCH_RESERVING)
+                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
         }
 
         if self.accounts.capacity() <= self.accounts.len() {
-            self.accounts.try_reserve(Self::BATCH_RESERVING).map_err(|e| {
-                TransactionError::NotEnoughMemoryAvailable(e)
-            })?;
+            self.accounts
+                .try_reserve(Self::BATCH_RESERVING)
+                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
         }
 
         match tx.tx_type {
@@ -553,7 +563,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::Disputed
+            );
         }
 
         #[test]
@@ -753,7 +766,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::Disputed
+            );
 
             engine
                 .process_transaction(TransactionInput {
@@ -765,7 +781,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Normal);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::Normal
+            );
         }
 
         #[test]
@@ -955,7 +974,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::Disputed
+            );
 
             engine
                 .process_transaction(TransactionInput {
@@ -967,7 +989,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::ChargedBack);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::ChargedBack
+            );
         }
 
         #[test]
@@ -1109,7 +1134,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::Disputed);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::Disputed
+            );
 
             engine
                 .process_transaction(TransactionInput {
@@ -1121,7 +1149,10 @@ mod transaction_tests {
                 .unwrap();
 
             assert_eq!(engine.deposits.len(), 1);
-            assert_eq!(engine.deposits.get(&1).unwrap().status, TransactionStatus::ChargedBack);
+            assert_eq!(
+                engine.deposits.get(&1).unwrap().status,
+                TransactionStatus::ChargedBack
+            );
 
             assert_eq!(
                 engine.process_transaction(TransactionInput {

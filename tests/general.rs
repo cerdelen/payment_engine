@@ -36,7 +36,9 @@ mod integration_tests {
             .assert()
             .success()
             .stderr(predicate::str::is_empty())
-            .stdout(predicate::str::contains("client,available,held,total,locked"));
+            .stdout(predicate::str::contains(
+                "client,available,held,total,locked",
+            ));
     }
 
     #[test]
@@ -47,7 +49,9 @@ mod integration_tests {
             .assert()
             .success()
             .stderr(predicate::str::is_empty())
-            .stdout(predicate::str::contains("client,available,held,total,locked"));
+            .stdout(predicate::str::contains(
+                "client,available,held,total,locked",
+            ));
     }
 
     #[test]
@@ -65,7 +69,6 @@ mod integration_tests {
             .stdout(predicate::str::contains("client,available,held,total,locked"));
     }
 
-
     #[test]
     fn test_different_input_number_formats() {
         let mut cmd = Command::new(cargo_bin!("payment_engine"));
@@ -74,7 +77,9 @@ mod integration_tests {
             .assert()
             .success()
             .stderr(predicate::str::is_empty())
-            .stdout(predicate::str::contains("client,available,held,total,locked"))
+            .stdout(predicate::str::contains(
+                "client,available,held,total,locked",
+            ))
             .stdout(predicate::str::contains("1,2.0,0.0,2.0,false"))
             .stdout(predicate::str::contains("2,1.0,0.0,1.0,false"));
     }
