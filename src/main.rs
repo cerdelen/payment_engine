@@ -12,11 +12,9 @@ use crate::{
     txn_engine::{engine::TransactionEngine, transaction::TransactionInput},
 };
 
-fn main() {
+fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
-    if let Err(e) = run_main(args) {
-        eprintln!("{e}");
-    }
+    run_main(args)
 }
 
 fn run_main(args: Vec<String>) -> Result<(), String> {
