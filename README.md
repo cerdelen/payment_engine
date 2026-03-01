@@ -2,7 +2,7 @@
 
 This is a small payment engine project. It reads a CSV file of transaction inputs and figures out each client's final account state. Output is written in CSV format to stdout.
 
-Just run ```bash cargo run -- <CSV File>```.
+Just run ```cargo run -- <CSV File>```.
 
 It handles 'Deposit', 'Withdrawals', 'Dispute', 'Resolve' and 'Chargback' transaction. It tracks available balances, held amounts from dispute and whether an account is blocked.
 
@@ -13,6 +13,11 @@ The output CSV format has the following columns: client (u16), available (decima
 
 The CLI will return with an error on unrecoverable encountered error, like not being able to open/read the input file or not being able to write.
 Erroneous transaction will not result in an error code.
+
+## Used Dependencies
+
+For the CLI itself only 'csv' (A csv parsing library) as well as 'serde' (a serializer library) are used.
+For testing 'assert_cmd' and 'predicates' are used. These come recommended by the [rust book for cli programming](https://rust-cli.github.io/book/tutorial/testing.html) written by a working group of [**@rustlang**](https://github.com/rust-cli).
 
 ## Ensuring correctness
 - No Floating-point types. Only strictly precise integer value for precision guarantees.
@@ -74,9 +79,11 @@ Erroneous transaction will not result in an error code.
     - Implementing a serde serializer/deserialzer for fixed precision decimal values
     - documentation summarization
 - Developer tooling:
-    - RustAnalyzer LSP for autocompletion and function documentation templates
+    - RustAnalyzer LSP for autocompletion and function documentation templates, as well as Neovim Code-snippets.
 - Testing
     - some integration test test files
+- No copilot or IDE integrated AI agents were used. Minor Code related assistance was sought through AI Web application interfaces (perplexity ai, chat gpt).
+    - No 'business logic' was discussed, strictly IO library handling, serde implementation and a few syntax questions.
 
 ## Roadmap
 Possible next steps for scalability include:
