@@ -6,9 +6,11 @@ use crate::txn_engine::amt::Amt;
 
 pub type ClientId = u16;
 
+/// Represents a client's account state.
+///
+/// Tracks available and held funds along with wether the account is blocked or not.
 #[derive(Debug)]
 pub(crate) struct ClientAccount {
-    // #[serde(rename = "client")]
     pub id: ClientId,
     pub available: Amt,
     pub held: Amt,
@@ -56,6 +58,8 @@ impl Display for AccountError {
 
 #[allow(unused)]
 impl ClientAccount {
+    /// Creates a new [`ClientAccount`]. `Available` and `held` funds are 0 and the account is not
+    /// blocked.
     pub fn new(id: ClientId) -> Self {
         Self {
             id,
@@ -65,6 +69,13 @@ impl ClientAccount {
         }
     }
 
+    /// Deposits the Amt to the account. Increases the `available` balance by Amt.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - the account is locked
+    /// - already available funds + Amt would overflow.
     pub fn deposit(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
             return Err(AccountError::AccountLocked);
@@ -80,6 +91,13 @@ impl ClientAccount {
         Ok(())
     }
 
+    /// Withdraws the Amt from the account. Decreases the `available` balance by Amt.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - the account is locked
+    /// - not enough available funds to cover a withdrawal
     pub fn withdraw(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
             return Err(AccountError::AccountLocked);
@@ -94,6 +112,15 @@ impl ClientAccount {
         Ok(())
     }
 
+    /// Dispute the an Amt for the account. Decreases the `available` balance and increases the
+    /// `held` balance by Amt.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - the account is locked
+    /// - not enough available funds to cover the dispute
+    /// - already held balance + Amt would overflow
     pub fn dispute(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
             return Err(AccountError::AccountLocked);
@@ -114,6 +141,15 @@ impl ClientAccount {
         Ok(())
     }
 
+    /// Resolve a previous dispute for Amt. Decreases the `held` balance and increases the
+    /// `available` balance by Amt.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - the account is locked
+    /// - not enough held funds to cover the resolve
+    /// - already available balance + Amt would overflow
     pub fn resolve(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
             return Err(AccountError::AccountLocked);
@@ -134,6 +170,13 @@ impl ClientAccount {
         Ok(())
     }
 
+    /// Charge back a previous dispute for Amt. Decreases the `held` balance by Amt.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// - the account is locked
+    /// - not enough held funds to cover the charge back
     pub fn chargeback(&mut self, amt: Amt) -> Result<(), AccountError> {
         if self.locked {
             return Err(AccountError::AccountLocked);

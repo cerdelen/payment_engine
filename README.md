@@ -35,9 +35,9 @@ For testing 'assert_cmd' and 'predicates' are used. These come recommended by th
 
 ## Maintainability
 - Input, Output and processing are modularized enabling maintainability and exchangeability.
-    Want to read from TCP streams instead of a singular CSV file?
+    - Want to read from TCP streams instead of a singular CSV file?  
     Exchange/Extend the Input Code.
-    Want to write to Disk instead of stdout?
+    - Want to write to Disk instead of stdout?  
     Exchange/Extend the Output code.
 
 ## Numeric Representation & Precision
@@ -55,12 +55,12 @@ For testing 'assert_cmd' and 'predicates' are used. These come recommended by th
 - Output formatting is normalized to always include a decimal point and at least 1 decimal digit.
 
 ## Client & Transaction Semantics
-- A client has 'available' & 'held' balances.
-- A deposit increases the available funds. (If not overflow available)
-- A withdrawal decreases the available funds. (If enough funds in available)
-- A deposit moves funds from available to held. (If not overflow held and enough funds in available)
-- A resolve moves funds back from held to available. (If not overflow available, and enough funds in held)
-- A chargeback moves removes funds from held. (If enough funds in held) Also blocks the Client account, any further transactions will be rejected.
+- A client has `available` & `held` balances.
+- A deposit increases the `available` funds. (If it does not overflow `available`)
+- A withdrawal decreases the `available` funds. (If enough funds are in `available`)
+- A deposit moves funds from `available` to held. (If it does not overflow `held` and enough funds are in `available`)
+- A resolve moves funds back from `held` to `available`. (If it does not overflow `available`, and enough funds are in `held`)
+- A chargeback moves removes funds from `held`. (If enough funds are in `held`) Also blocks the Client account, any further transactions will be rejected.
 - Only deposits can be disputed.
 - Only disputed deposits can be resolved.
 - Only disputed deposits can be charged back.
@@ -75,19 +75,19 @@ For testing 'assert_cmd' and 'predicates' are used. These come recommended by th
     - Another idea is to store only the last x amount of transaction of any given user. This would mean only the past x amt of transaction of any user are disputable.
 
 ## AI Usage
-- Assisted with:
+- AI Assisted with:
     - Implementing a serde serializer/deserializer for fixed precision decimal values
     - documentation summarization
 - Developer tooling:
-    - RustAnalyzer LSP for autocompletion and function documentation templates, as well as Neovim Code-snippets.
+    - `RustAnalyzer LSP` for autocompletion and function documentation templates, as well as `Neovim` Code-snippets.
 - Testing
-    - some integration test test files
-- No copilot or IDE integrated AI agents were used. Minor Code related assistance was sought through AI Web application interfaces (perplexity ai, chat gpt).
+    - some integration test test files were created by AI
+- No copilot or IDE integrated AI agents were used. Minor Code related assistance was sought through AI Web application interfaces (`perplexity ai`, `chat gpt`).
     - No 'business logic' was discussed, strictly IO library handling, serde implementation and a few syntax questions.
 
 ## Roadmap
 Possible next steps for scalability include:
 - dependency injecting for different kinds of storage stores of past transactions/account balances to battle unbounded memory growth.
-    Various Databases could be chosen to offload memory usage to use disk space instead as RAM is limited, Disk space is much cheaper and plentiful (but slower!).
+    Various Databases could be chosen to offload memory usage to use disk space instead, as RAM is limited. Disk space is much cheaper and plentiful (but slower!).
 - Weighing pro's and cons wrapping the Storage stores (currently in memory HashMaps) with Arcs + Mutexes/RWLock's to enable concurrent processing.
     Current implementation would loose efficiency by having to lock/unlock Mutexes/RwLocks when only a single File read is supported.
