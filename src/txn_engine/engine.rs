@@ -119,19 +119,19 @@ impl TransactionEngine {
         if self.deposits.capacity() <= self.deposits.len() {
             self.deposits
                 .try_reserve(Self::BATCH_RESERVING)
-                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
+                .map_err(TransactionError::NotEnoughMemoryAvailable)?;
         }
 
         if self.withdrawals.capacity() <= self.withdrawals.len() {
             self.withdrawals
                 .try_reserve(Self::BATCH_RESERVING)
-                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
+                .map_err(TransactionError::NotEnoughMemoryAvailable)?;
         }
 
         if self.accounts.capacity() <= self.accounts.len() {
             self.accounts
                 .try_reserve(Self::BATCH_RESERVING)
-                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
+                .map_err(TransactionError::NotEnoughMemoryAvailable)?;
         }
 
         match tx.tx_type {

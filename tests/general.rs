@@ -14,7 +14,9 @@ mod integration_tests {
                 .assert()
                 .success()
                 .stderr(predicate::str::is_empty())
-                .stdout(predicate::str::contains("client,available,held,total,locked"))
+                .stdout(predicate::str::contains(
+                    "client,available,held,total,locked",
+                ))
                 .stdout(predicate::str::contains("1,3.3,0.0,3.3,false"));
         }
 
@@ -26,7 +28,9 @@ mod integration_tests {
                 .assert()
                 .success()
                 .stderr(predicate::str::is_empty())
-                .stdout(predicate::str::contains("client,available,held,total,locked"))
+                .stdout(predicate::str::contains(
+                    "client,available,held,total,locked",
+                ))
                 .stdout(predicate::str::contains("1,2.2,0.0,2.2,false"))
                 .stdout(predicate::str::contains("2,1.1,0.0,1.1,false"));
         }
@@ -39,7 +43,9 @@ mod integration_tests {
                 .assert()
                 .success()
                 .stderr(predicate::str::is_empty())
-                .stdout(predicate::str::contains("client,available,held,total,locked"))
+                .stdout(predicate::str::contains(
+                    "client,available,held,total,locked",
+                ))
                 .stdout(predicate::str::contains("5,0.0,0.0,0.0,true"))
                 .stdout(predicate::str::contains("3,0.0,10.0,10.0,false"))
                 .stdout(predicate::str::contains("2,0.2,0.0,0.2,false"))
@@ -87,7 +93,6 @@ mod integration_tests {
                 .stdout(predicate::str::contains("1,2.0,0.0,2.0,false"))
                 .stdout(predicate::str::contains("2,1.0,0.0,1.0,false"));
         }
-
     }
 
     mod unhappy_path {
