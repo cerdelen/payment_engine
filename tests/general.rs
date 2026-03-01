@@ -17,6 +17,56 @@ mod integration_tests {
     }
 
     #[test]
+    fn test_file_not_found() {
+        let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+        let bogus_file_name = "greherhersedfwseg";
+
+        cmd.arg(bogus_file_name)
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(format!("Error: \"Failed to open CSV File '{bogus_file_name}': No such file or directory (os error 2)\"")));
+    }
+
+    #[test]
+    fn test_empty_file() {
+        let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+        cmd.arg("tests/input_files/empty_file.csv")
+            .assert()
+            .success()
+            .stderr(predicate::str::is_empty())
+            .stdout(predicate::str::contains("client,available,held,total,locked"));
+    }
+
+    #[test]
+    fn test_only_headers_file() {
+        let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+        cmd.arg("tests/input_files/only_headers.csv")
+            .assert()
+            .success()
+            .stderr(predicate::str::is_empty())
+            .stdout(predicate::str::contains("client,available,held,total,locked"));
+    }
+
+    #[test]
+    fn test_invalid_negative_amt_input() {
+        let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+        cmd.arg("tests/input_files/negative_amt_input.csv")
+            .assert()
+            .success()
+            .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Deposit, client_id: 1, tx_id: 1, amt: Some(Amt(-11000)) }: amt value negative (only positive values allowed)"))
+            .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Withdrawal, client_id: 1, tx_id: 1, amt: Some(Amt(-11000)) }: amt value negative (only positive values allowed)"))
+            .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Dispute, client_id: 1, tx_id: 1, amt: Some(Amt(-11000)) }: amt value negative (only positive values allowed)"))
+            .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Resolve, client_id: 1, tx_id: 1, amt: Some(Amt(-11000)) }: amt value negative (only positive values allowed)"))
+            .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Chargeback, client_id: 1, tx_id: 1, amt: Some(Amt(-11000)) }: amt value negative (only positive values allowed)"))
+            .stdout(predicate::str::contains("client,available,held,total,locked"));
+    }
+
+
+    #[test]
     fn test_different_input_number_formats() {
         let mut cmd = Command::new(cargo_bin!("payment_engine"));
 
