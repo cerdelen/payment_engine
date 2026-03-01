@@ -1,5 +1,19 @@
 # Payments engine - Design Notes
 
+This is a small payment engine project. It reads a CSV file of transaction inputs and figures out each client's final account state. Output is written in CSV format to stdout.
+
+Just run ```bash cargo run -- <CSV File>```.
+
+It handles 'Deposit', 'Withdrawals', 'Dispute', 'Resolve' and 'Chargback' transaction. It tracks available balances, held amounts from dispute and whether an account is blocked.
+
+Check out the 'Client & Transaction Semantics' section for more in depth explanation.
+
+The input CSV format has the following columns: type (string), client (u16), tx (u32), amount (decimal value).
+The output CSV format has the following columns: client (u16), available (decimal value), held (decimal value), total (decimal value), locked (boolean)
+
+The CLI will return with an error on unrecoverable encountered error, like not being able to open/read the input file or not being able to write.
+Erroneous transaction will not result in an error code.
+
 ## Ensuring correctness
 - No Floating-point types. Only strictly precise integer value for precision guarantees.
 - Extensive unit test suite. 50 unit tests test for correct behavior testing both happy path and all unhappy path variations.
@@ -17,9 +31,9 @@
 ## Maintainability
 - Input, Output and processing are modularized enabling maintainability and exchangeability.
     Want to read from TCP streams instead of a singular CSV file?
-    Exchange the Input Code.
+    Exchange/Extend the Input Code.
     Want to write to Disk instead of stdout?
-    Exchange the Output code.
+    Exchange/Extend the Output code.
 
 ## Numeric Representation & Precision
 - Floating-point types (f32, f64) are not used, instead scaled i128 integers with a fixed scale of 10 ^ 4 are used.
@@ -49,7 +63,7 @@
 
 ## Development Notes
 - The in memory store for past transaction grow unbounded with every new deposit/withdrawal. (using try_reserve to prevent runtime panics, but will reject transactions if memory is too restricted)
-- Since only deposits are disputable (and resolve/chargeback) no other transactions need to be stored. (for withdrawals only TxIds are pused to a Set to ensure globally unique Ids)
+- Since only deposits are disputable (and resolve/chargeback) no other transactions need to be stored. (for withdrawals only TxIds are pushed to a Set to ensure globally unique Ids)
 - It could be argued that chargebacked deposits could be deleted as they cannot be disputed anymore.
 - In a more elaborate system one might look at other complexity improvements like splitting the stored transactions differently. E.g:
     - One idea is to group them by timestamp and either write them to disk at some point or delete them meaning after x amt of time any transaction is indisputable.
