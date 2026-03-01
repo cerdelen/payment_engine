@@ -93,6 +93,17 @@ mod integration_tests {
                 .stdout(predicate::str::contains("1,2.0,0.0,2.0,false"))
                 .stdout(predicate::str::contains("2,1.0,0.0,1.0,false"));
         }
+
+        #[test]
+        fn test_csv_additional_field() {
+            let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+            cmd.arg("tests/input_files/additional_csv_field.csv")
+                .assert()
+                .success()
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV error: record 1 (line: 2, byte: 22): found record with 5 fields, but the previous record has 4 fields"))
+                .stdout(predicate::str::contains("client,available,held,total,locked"));
+        }
     }
 
     mod unhappy_path {
@@ -284,6 +295,33 @@ mod integration_tests {
                 .stdout(predicate::str::contains("2,400.0,0.0,400.0,true"))
                 .stdout(predicate::str::contains("3,0.0,0.0,0.0,true"))
                 .stdout(predicate::str::contains("1,1350.0,0.0,1350.0,true"));
+        }
+
+        #[test]
+        fn test_csv_missing_field() {
+            let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+            cmd.arg("tests/input_files/missing_csv_field.csv")
+                .assert()
+                .success()
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV error: record 1 (line: 2, byte: 16): found record with 3 fields, but the previous record has 4 fields"))
+                .stdout(predicate::str::contains("client,available,held,total,locked"));
+        }
+
+        #[test]
+        fn test_csv_invalid_field_values() {
+            let mut cmd = Command::new(cargo_bin!("payment_engine"));
+
+            cmd.arg("tests/input_files/wrong_values_for_fields.csv")
+                .assert()
+                .success()
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 1 (line: 2, byte: 22): unknown variant `foobar`, expected one of `deposit`, `withdrawal`, `dispute`, `resolve`, `chargeback"))
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 2 (line: 3, byte: 40): field 1: invalid digit found in string"))
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 3 (line: 4, byte: 61): field 1: invalid digit found in string"))
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 4 (line: 5, byte: 84): field 1: invalid digit found in string"))
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 5 (line: 6, byte: 107): field 1: invalid digit found in string"))
+                .stderr(predicate::str::contains("Error: getting record from CSV reader: CSV deserialize error: record 6 (line: 7, byte: 133): field 1: invalid digit found in string"))
+                .stdout(predicate::str::contains("client,available,held,total,locked"));
         }
     }
 }

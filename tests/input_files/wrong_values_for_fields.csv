@@ -1,0 +1,7 @@
+type,client,tx,amount
+foobar,1,1,1.1000
+deposit,1.0,1,1.1000
+deposit,1.0,1.0,1.1000
+deposit,1.0,1.0,foobar
+deposit,foobar,1.0,1.1000
+deposit,1.0,foobar,1.1000
