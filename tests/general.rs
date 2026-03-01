@@ -39,7 +39,7 @@ mod integration_tests {
         fn test_one_valid_of_each_transaction() {
             let mut cmd = Command::new(cargo_bin!("payment_engine"));
 
-            cmd.arg("tests/input_files/one_valid_tansaction_of_every_kind.csv")
+            cmd.arg("tests/input_files/one_valid_transaction_of_every_kind.csv")
                 .assert()
                 .success()
                 .stderr(predicate::str::is_empty())
@@ -125,10 +125,10 @@ mod integration_tests {
         }
 
         #[test]
-        fn test_dispute_resolve_chargeback_refer_to_non_existant_id() {
+        fn test_dispute_resolve_chargeback_refer_to_non_existent_id() {
             let mut cmd = Command::new(cargo_bin!("payment_engine"));
 
-            cmd.arg("tests/input_files/d_r_c_with_non_existant_id.csv")
+            cmd.arg("tests/input_files/d_r_c_with_non_existent_id.csv")
                 .assert()
                 .success()
                 .stderr(predicate::str::contains("Transaction failed TransactionInput { tx_type: Dispute, client_id: 1, tx_id: 1, amt: None }: transaction id referred to not existent"))
@@ -159,11 +159,11 @@ mod integration_tests {
             let mut cmd = Command::new(cargo_bin!("payment_engine"));
 
             // includes a dispute to a disputed deposit
-            // includes a dispute to a chargebacled deposit
+            // includes a dispute to a chargebacked deposit
             // includes a resolved to a non disputed deposit
-            // includes a resolved to a chargebacled deposit
+            // includes a resolved to a chargebacked deposit
             // includes a chargeback to a non disputed deposit
-            // includes a chargeback to a chargebacled deposit
+            // includes a chargeback to a chargebacked deposit
             cmd.arg("tests/input_files/d_r_c_with_wrong_deposit_states.csv")
                 .assert()
                 .success()

@@ -1,0 +1,15 @@
+words:
+  - chargeback
+  - chargebacks
+  - chargebacked
+  - Chargeback
+  - rustlang
+  - serde
+  - deserializer
+  - edgecase
+  - exchangeability
+  - greherhersedfwseg
+
+ignorePaths:
+  - cspell.yaml
+  - target/

@@ -25,7 +25,7 @@ impl Serialize for ClientAccount {
         state.serialize_field("available", &self.available)?;
         state.serialize_field("held", &self.held)?;
         // if available + held overflows we print i128::MAX. This is a number higher than the
-        // global GDP so this is a reasonable edgecase to print unprecisely
+        // global GDP so this is a reasonable edgecase to possibly print imprecisely
         let total = self.available.checked_add(self.held).unwrap_or(Amt::max());
         state.serialize_field("total", &total)?;
         state.serialize_field("locked", &self.locked)?;

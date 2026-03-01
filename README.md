@@ -4,7 +4,7 @@ This is a small payment engine project. It reads a CSV file of transaction input
 
 Just run ```cargo run -- <CSV File>```.
 
-It handles 'Deposit', 'Withdrawals', 'Dispute', 'Resolve' and 'Chargback' transaction. It tracks available balances, held amounts from dispute and whether an account is blocked.
+It handles 'Deposit', 'Withdrawals', 'Dispute', 'Resolve' and 'Chargeback' transaction. It tracks available balances, held amounts from dispute and whether an account is blocked.
 
 Check out the 'Client & Transaction Semantics' section for more in depth explanation.
 
@@ -63,7 +63,7 @@ For testing 'assert_cmd' and 'predicates' are used. These come recommended by th
 - A chargeback moves removes funds from held. (If enough funds in held) Also blocks the Client account, any further transactions will be rejected.
 - Only deposits can be disputed.
 - Only disputed deposits can be resolved.
-- Only disputed deposits can be chargedback.
+- Only disputed deposits can be charged back.
 - Accounts are never allowed to go into negative balance
 
 ## Development Notes
@@ -76,7 +76,7 @@ For testing 'assert_cmd' and 'predicates' are used. These come recommended by th
 
 ## AI Usage
 - Assisted with:
-    - Implementing a serde serializer/deserialzer for fixed precision decimal values
+    - Implementing a serde serializer/deserializer for fixed precision decimal values
     - documentation summarization
 - Developer tooling:
     - RustAnalyzer LSP for autocompletion and function documentation templates, as well as Neovim Code-snippets.
