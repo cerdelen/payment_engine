@@ -48,8 +48,8 @@
 - Accounts are never allowed to go into negative balance
 
 ## Development Notes
-- The in memory store for past transaction grow unbounded with every new deposit. (using try_reserve to prevent runtime panics, but will reject transactions if memory is too restricted)
-- Since only deposits are disputable (and resolve/chargeback) no other transactions need to be stored.
+- The in memory store for past transaction grow unbounded with every new deposit/withdrawal. (using try_reserve to prevent runtime panics, but will reject transactions if memory is too restricted)
+- Since only deposits are disputable (and resolve/chargeback) no other transactions need to be stored. (for withdrawals only TxIds are pused to a Set to ensure globally unique Ids)
 - It could be argued that chargebacked deposits could be deleted as they cannot be disputed anymore.
 - In a more elaborate system one might look at other complexity improvements like splitting the stored transactions differently. E.g:
     - One idea is to group them by timestamp and either write them to disk at some point or delete them meaning after x amt of time any transaction is indisputable.

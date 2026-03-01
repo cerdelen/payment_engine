@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, TryReserveError},
+    collections::{HashMap, HashSet, TryReserveError},
     fmt::Display,
 };
 
@@ -30,6 +30,8 @@ pub struct TransactionEngine {
     accounts: AccountBalances,
     /// Holds all previously processed deposits as [`ProcessedTransaction`].
     deposits: HashMap<TxId, ProcessedTransaction>,
+    /// Keep track of encountered withdrawals for unique id tracking
+    withdrawals: HashSet<TxId>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -101,7 +103,7 @@ impl TransactionEngine {
         // Check for duplicated transaction ids for deposits or withdrawals
         // disputes, resolves and chargebacks will reference previous tx_ids with the tx_id field
         if (tx.tx_type == TransactionType::Deposit || tx.tx_type == TransactionType::Withdrawal)
-            && self.deposits.contains_key(&tx.tx_id)
+            && (self.deposits.contains_key(&tx.tx_id) || self.withdrawals.contains(&tx.tx_id))
         {
             return Err(TransactionError::DuplicatedTransactionId);
         }
@@ -116,6 +118,12 @@ impl TransactionEngine {
         // Use try_reserve + error propagation.
         if self.deposits.capacity() <= self.deposits.len() {
             self.deposits
+                .try_reserve(Self::BATCH_RESERVING)
+                .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
+        }
+
+        if self.withdrawals.capacity() <= self.withdrawals.len() {
+            self.withdrawals
                 .try_reserve(Self::BATCH_RESERVING)
                 .map_err(|e| TransactionError::NotEnoughMemoryAvailable(e))?;
         }
@@ -174,6 +182,8 @@ impl TransactionEngine {
             .entry(tx.client_id)
             .or_insert(ClientAccount::new(tx.client_id));
         account.withdraw(amt)?;
+
+        self.withdrawals.insert(tx.tx_id);
 
         Ok(())
     }
@@ -435,11 +445,31 @@ mod transaction_tests {
                     amt: Some(Amt::from(1)),
                 })
                 .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
+                    amt: Some(Amt::from(1)),
+                })
+                .unwrap();
+
             assert_eq!(
                 engine.process_transaction(TransactionInput {
                     tx_type: TransactionType::Deposit,
                     client_id: 1,
                     tx_id: 1,
+                    amt: Some(Amt::from(2)),
+                }),
+                Err(TransactionError::DuplicatedTransactionId)
+            );
+
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Deposit,
+                    client_id: 1,
+                    tx_id: 2,
                     amt: Some(Amt::from(2)),
                 }),
                 Err(TransactionError::DuplicatedTransactionId)
@@ -520,6 +550,15 @@ mod transaction_tests {
                     tx_type: TransactionType::Deposit,
                     client_id: 1,
                     tx_id: 1,
+                    amt: Some(Amt::from(5)),
+                })
+                .unwrap();
+
+            engine
+                .process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
                     amt: Some(Amt::from(1)),
                 })
                 .unwrap();
@@ -528,6 +567,15 @@ mod transaction_tests {
                     tx_type: TransactionType::Withdrawal,
                     client_id: 1,
                     tx_id: 1,
+                    amt: Some(Amt::from(1)),
+                }),
+                Err(TransactionError::DuplicatedTransactionId)
+            );
+            assert_eq!(
+                engine.process_transaction(TransactionInput {
+                    tx_type: TransactionType::Withdrawal,
+                    client_id: 1,
+                    tx_id: 2,
                     amt: Some(Amt::from(1)),
                 }),
                 Err(TransactionError::DuplicatedTransactionId)
